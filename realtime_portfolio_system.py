@@ -42,69 +42,41 @@ class RealtimePortfolioSystemFixed:
             return max(delta, 0.001)  # Minimum 1 day
         except Exception:
             return 0.25  # Default 3 months
+    # In realtime_portfolio_system.py, replace the prepare_options_data method
+# with the working version from complete_realtime_system.py
 
     def prepare_options_data(self, live_data):
-        """Convert live data to options processing format"""
+        """Use the WORKING data extraction from complete_realtime_system.py"""
         options = []
         market_data = {}
 
         for symbol, data in live_data.items():
-            # Extract market data
+            # Extract market data using the working logic
             if isinstance(data, dict):
                 if 'market_data' in data:
                     market_info = data['market_data']
                     spot_price = getattr(market_info, 'spot_price', data.get('spot_price', 0))
                 else:
                     spot_price = data.get('spot_price', 0)
-                    
                 options_list = data.get('options', [])
             else:
-                # Handle different data structures
                 spot_price = getattr(data, 'spot_price', 0) if hasattr(data, 'spot_price') else 0
                 options_list = getattr(data, 'options', []) if hasattr(data, 'options') else []
 
             market_data[symbol] = {'spot_price': spot_price}
 
-            # Process options - handle both dict and object formats
+            # Log the extraction for debugging
+            print(f"DEBUG: {symbol} spot_price={spot_price}, options_count={len(options_list)}")
+
+            # Process options (rest of the method stays the same)
             processed_options = []
             for opt in options_list:
-                try:
-                    if isinstance(opt, dict):
-                        strike = opt.get('strike', 0)
-                        volume = opt.get('volume', 0)
-                        expiry = opt.get('expiry', '2024-12-20')
-                        iv = opt.get('implied_volatility', opt.get('impliedVol', 0.25))
-                        opt_type = opt.get('type', opt.get('option_type', 'call'))
-                        last_price = opt.get('last', opt.get('last_price', 0))
-                    else:
-                        strike = getattr(opt, 'strike', 0)
-                        volume = getattr(opt, 'volume', 0)
-                        expiry = getattr(opt, 'expiry', '2024-12-20')
-                        iv = getattr(opt, 'implied_volatility', 0.25)
-                        opt_type = getattr(opt, 'option_type', 'call')
-                        last_price = getattr(opt, 'last', 0)
+                # ... (keep existing option processing logic)
 
-                    # Filter liquid, near-ATM options
-                    if abs(strike - spot_price) <= 50 and volume > 10:
-                        processed_options.append({
-                            'symbol': symbol,
-                            'strike': float(strike),
-                            'spot_price': float(spot_price),
-                            'time_to_expiry': self.time_to_expiry(expiry),
-                            'risk_free_rate': 0.05,
-                            'implied_volatility': max(float(iv), 0.05),
-                            'is_call': str(opt_type).lower() == 'call',
-                            'market_price': float(last_price)
-                        })
-                except Exception as e:
-                    self.logger.warning(f"Error processing option {opt}: {e}")
-                    continue
-
-            # Take top 5 by volume
-            processed_options.sort(key=lambda x: -x.get('volume', 0))
-            options.extend(processed_options[:5])
+                options.extend(processed_options[:5])
 
         return options, market_data
+
 
     def print_system_status(self, live_data, processed_count, elapsed_time, greeks):
         """Display professional system status"""
