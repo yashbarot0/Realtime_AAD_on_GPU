@@ -6,18 +6,18 @@ import numpy as np
 from typing import Dict, List
 import logging
 
-# Import our modules
+# Import our WORKING modules (not the broken ones)
 from live_options_fetcher import LiveOptionsDataFetcher
-from gpu_portfolio_interface import GPUPortfolioInterface
+from safe_gpu_interface import SafeGPUInterface  # ← FIXED: Use working interface
 
-class CompleteRealTimeSystem:
+class CompleteRealTimeSystemFixed:
     def __init__(self):
-        """Initialize the complete real-time system"""
+        """Initialize the complete real-time system with WORKING GPU interface"""
         self.setup_logging()
         
-        # Initialize components
+        # Initialize components with the SAFE interface
         self.data_fetcher = LiveOptionsDataFetcher()
-        self.gpu_interface = GPUPortfolioInterface()
+        self.gpu_interface = SafeGPUInterface()  # ← SAFE VERSION
         
         # System configuration
         self.tracked_symbols = ['AAPL', 'MSFT', 'GOOGL']
@@ -48,8 +48,8 @@ class CompleteRealTimeSystem:
             return 0.25  # Default to 3 months
     
     def process_live_data(self, live_data: Dict) -> List[Dict]:
-        """Convert live options data to GPU format"""
-        gpu_options = []
+        """Convert live options data to processing format"""
+        processed_options = []
         market_data = {}
         risk_free_rate = 0.05
         
@@ -68,7 +68,7 @@ class CompleteRealTimeSystem:
             atm_options.sort(key=lambda x: x.volume, reverse=True)
             
             for option in atm_options[:5]:  # Top 5 liquid options per symbol
-                gpu_option = {
+                processed_option = {
                     'symbol': symbol,
                     'strike': option.strike,
                     'spot_price': market_info.spot_price,
@@ -78,9 +78,9 @@ class CompleteRealTimeSystem:
                     'is_call': (option.option_type == 'call'),
                     'market_price': option.last
                 }
-                gpu_options.append(gpu_option)
+                processed_options.append(processed_option)
         
-        return gpu_options, market_data
+        return processed_options, market_data
     
     def print_system_update(self, live_data: Dict, processed_count: int, 
                           processing_time: float, greeks):
@@ -137,15 +137,15 @@ class CompleteRealTimeSystem:
                 self.logger.warning("No live data received")
                 return False
             
-            # Process for GPU
+            # Process for GPU/CPU
             options_data, market_data = self.process_live_data(live_data)
             
             if not options_data:
                 self.logger.warning("No valid options data to process")
                 return False
             
-            # Send to GPU/CPU for processing
-            processed_count = self.gpu_interface.add_options_batch_with_positions(
+            # Send to GPU/CPU for processing using SAFE interface
+            processed_count = self.gpu_interface.process_portfolio_options(
                 options_data, market_data
             )
             
@@ -187,6 +187,7 @@ class CompleteRealTimeSystem:
         print("=" * 55)
         print(f"Symbols: {', '.join(self.tracked_symbols)}")
         print(f"Update Interval: {self.update_interval} seconds")
+        print(f"GPU Mode: {'✅ ACTIVE' if self.gpu_interface.use_gpu else '🔄 CPU FALLBACK'}")
         print(f"Press Ctrl+C to stop\n")
         
         self.running = True
@@ -215,7 +216,7 @@ class CompleteRealTimeSystem:
 
 # Main execution
 async def main():
-    system = CompleteRealTimeSystem()
+    system = CompleteRealTimeSystemFixed()
     await system.run()
 
 if __name__ == "__main__":
