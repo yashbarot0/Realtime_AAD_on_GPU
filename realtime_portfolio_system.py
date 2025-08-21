@@ -46,63 +46,111 @@ class RealtimePortfolioSystemFixed:
 # with the working version from complete_realtime_system.py
 
     def prepare_options_data(self, live_data):
-        """Use the WORKING data extraction from complete_realtime_system.py"""
+        """FIXED: More lenient options filtering"""
         options = []
         market_data = {}
 
         for symbol, data in live_data.items():
-            # Extract market data using the working logic
-            if isinstance(data, dict):
-                if 'market_data' in data:
-                    market_info = data['market_data']
-                    spot_price = getattr(market_info, 'spot_price', data.get('spot_price', 0))
+            try:
+                # Extract spot price (this part is working correctly)
+                if isinstance(data, dict):
+                    if 'market_data' in data:
+                        market_info = data['market_data']
+                        spot_price = getattr(market_info, 'spot_price', 0)
+                    else:
+                        spot_price = data.get('spot_price', 0)
+                    options_list = data.get('options', [])
                 else:
-                    spot_price = data.get('spot_price', 0)
-                options_list = data.get('options', [])
-            else:
-                spot_price = getattr(data, 'spot_price', 0) if hasattr(data, 'spot_price') else 0
-                options_list = getattr(data, 'options', []) if hasattr(data, 'options') else []
+                    spot_price = getattr(data, 'spot_price', 0)
+                    options_list = getattr(data, 'options', [])
 
-            market_data[symbol] = {'spot_price': spot_price}
+                market_data[symbol] = {'spot_price': float(spot_price)}
 
-            # Log the extraction for debugging
-            print(f"DEBUG: {symbol} spot_price={spot_price}, options_count={len(options_list)}")
+                print(f"DEBUG: {symbol} spot_price={spot_price}, options_count={len(options_list)}")
 
-            # Process options (rest of the method stays the same)
-            processed_options = []
-            for opt in options_list:
-                # ... (keep existing option processing logic)
+                # FIXED: More lenient filtering criteria
+                processed_options = []
+                for opt in options_list[:20]:  # Process more options
+                    try:
+                        if isinstance(opt, dict):
+                            strike = opt.get('strike', 0)
+                            volume = opt.get('volume', 0)
+                            expiry = opt.get('expiry', '2024-12-20')
+                            iv = opt.get('implied_volatility', opt.get('impliedVol', 0.25))
+                            opt_type = opt.get('type', opt.get('option_type', 'call'))
+                            last_price = opt.get('last', opt.get('last_price', 0))
+                        else:
+                            strike = getattr(opt, 'strike', 0)
+                            volume = getattr(opt, 'volume', 0)
+                            expiry = getattr(opt, 'expiry', '2024-12-20')
+                            iv = getattr(opt, 'implied_volatility', 0.25)
+                            opt_type = getattr(opt, 'option_type', 'call')
+                            last_price = getattr(opt, 'last', 0)
 
-                options.extend(processed_options[:5])
+                        # RELAXED FILTERING: Accept more options
+                        strike_diff = abs(float(strike) - float(spot_price))
+                        volume_check = float(volume) > 1  # Reduced from 10 to 1
+                        strike_check = strike_diff <= 100  # Increased from 50 to 100
 
+                        print(f"  Option: strike={strike}, volume={volume}, strike_diff={strike_diff:.2f}")
+
+                        if strike_check and volume_check and float(strike) > 0:
+                            processed_options.append({
+                                'symbol': symbol,
+                                'strike': float(strike),
+                                'spot_price': float(spot_price),
+                                'time_to_expiry': self.time_to_expiry(expiry),
+                                'risk_free_rate': 0.05,
+                                'implied_volatility': max(float(iv), 0.05),
+                                'is_call': str(opt_type).lower() == 'call',
+                                'market_price': float(last_price),
+                                'volume': float(volume)
+                            })
+                            print(f"    ✅ ACCEPTED option: {strike} strike, {volume} volume")
+                        else:
+                            print(f"    ❌ REJECTED: strike_ok={strike_check}, volume_ok={volume_check}")
+
+                    except Exception as e:
+                        print(f"    Error processing option: {e}")
+                        continue
+
+                print(f"  Total processed options for {symbol}: {len(processed_options)}")
+
+                # Sort by volume and take top options
+                processed_options.sort(key=lambda x: -x.get('volume', 0))
+                options.extend(processed_options[:5])  # Top 5 per symbol
+
+            except Exception as e:
+                self.logger.error(f"Error processing symbol {symbol}: {e}")
+                market_data[symbol] = {'spot_price': 0.0}
+
+        print(f"FINAL: Total options for processing: {len(options)}")
         return options, market_data
 
 
-    def print_system_status(self, live_data, processed_count, elapsed_time, greeks):
-        """Display professional system status"""
-        print(f"\n{'='*80}")
-        print(f"🚀 REAL-TIME PORTFOLIO UPDATE - {datetime.now().strftime('%H:%M:%S')}")
-        print(f"{'='*80}")
+    def print_system_status(self, live_data, processed_count, elapsed_time, greeks, market_data):
+        # ... existing code ...
 
         print(f"\n📈 MARKET DATA:")
         total_options = 0
         for symbol in self.tracked_symbols:
             if symbol in live_data:
+                # ✅ FIXED: Use the processed market_data
+                spot = market_data.get(symbol, {}).get('spot_price', 0)
+
                 data = live_data[symbol]
                 if isinstance(data, dict):
-                    spot = data.get('spot_price', 0)
                     opts_count = len(data.get('options', []))
                 else:
-                    spot = getattr(data, 'spot_price', 0)
                     opts_count = len(getattr(data, 'options', []))
-                    
+
                 total_options += opts_count
-                
+
                 position = self.gpu_interface.get_positions().get(symbol, {})
                 pnl = 0
                 if position:
                     pnl = (spot - position.get('entry_price', 0)) * position.get('quantity', 0)
-                
+
                 print(f"  {symbol}: ${spot:>8.2f} | {opts_count:>3d} options | "
                       f"Pos: {position.get('quantity', 0):>4d} | P&L: ${pnl:>+8,.0f}")
 
@@ -161,7 +209,7 @@ class RealtimePortfolioSystemFixed:
             ) / self.stats['updates']
 
             # Display results
-            self.print_system_status(live_data, processed_count, elapsed_time, greeks)
+            self.print_system_status(live_data, processed_count, elapsed_time, greeks, market_data)
 
             return True
 
