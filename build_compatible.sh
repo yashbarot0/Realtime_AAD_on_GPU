@@ -84,7 +84,8 @@ if [[ "$CPU_ONLY_FLAG" == "true" ]]; then
     
     if cmake -DCPU_ONLY=ON \
              -DCMAKE_BUILD_TYPE=Release \
-             .. && make -j$(nproc 2>/dev/null || echo 4); then
+             -DCMAKE_CXX_FLAGS="-std=c++17" \
+             .. && make -j$(nproc 2>/dev/null || echo 4) 2>&1 | tee build.log; then
         print_status "✓ CPU-only build succeeded!"
         print_warning "Note: Running in CPU-only mode (no GPU acceleration)"
         echo ""
@@ -102,42 +103,23 @@ if [[ "$CPU_ONLY_FLAG" == "true" ]]; then
         exit 0
     else
         print_error "CPU-only build failed"
+        echo "Build log saved to build/build.log"
+        echo ""
+        echo "Common issues and solutions:"
+        echo "1. Missing C++ compiler: install build-essential"
+        echo "2. Missing CMake: install cmake"
+        echo "3. Missing OpenMP: install libomp-dev"
         exit 1
     fi
 fi
 
-# Build strategy 1: Try CUDA with compatibility flags
-if [[ "$FORCE_COMPAT" == "true" ]] || [[ -n "$1" && "$1" == "--force-compat" ]]; then
-    print_status "Strategy 1: CUDA build with compatibility flags..."
-    
-    if cmake -DUSE_CUDA=ON \
-             -DCMAKE_BUILD_TYPE=Release \
-             -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler" \
-             .. && make -j$(nproc); then
-        print_status "✓ CUDA build with compatibility flags succeeded!"
-        echo ""
-        echo "Build completed successfully!"
-        echo "Executables created:"
-        echo "  - GPU_AAD (main application)"
-        echo "  - portfolio_demo (portfolio demonstration)"
-        echo ""
-        echo "To run:"
-        echo "  ./GPU_AAD"
-        echo "  ./portfolio_demo"
-        exit 0
-    else
-        print_error "CUDA build with compatibility flags failed"
-    fi
-fi
-
-# Build strategy 2: Try standard CUDA build
+# Build strategy 1: Try standard CUDA build
 if [[ "$FORCE_COMPAT" != "true" ]]; then
-    print_status "Strategy 2: Standard CUDA build..."
+    print_status "Strategy 1: Standard CUDA build..."
     
-    rm -rf *
     if cmake -DUSE_CUDA=ON \
              -DCMAKE_BUILD_TYPE=Release \
-             .. && make -j$(nproc); then
+             .. && make -j$(nproc 2>/dev/null || echo 4) 2>&1 | tee build.log; then
         print_status "✓ Standard CUDA build succeeded!"
         echo ""
         echo "Build completed successfully!"
@@ -151,7 +133,33 @@ if [[ "$FORCE_COMPAT" != "true" ]]; then
         exit 0
     else
         print_error "Standard CUDA build failed"
+        echo "Build log saved to build/build.log"
+        echo "Trying compatibility mode..."
     fi
+fi
+
+# Build strategy 2: Try CUDA with compatibility flags  
+print_status "Strategy 2: CUDA build with compatibility flags..."
+
+rm -rf *
+if cmake -DUSE_CUDA=ON \
+         -DCMAKE_BUILD_TYPE=Release \
+         -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler" \
+         .. && make -j$(nproc 2>/dev/null || echo 4) 2>&1 | tee build.log; then
+    print_status "✓ CUDA build with compatibility flags succeeded!"
+    echo ""
+    echo "Build completed successfully!"
+    echo "Executables created:"
+    echo "  - GPU_AAD (main application)"
+    echo "  - portfolio_demo (portfolio demonstration)"
+    echo ""
+    echo "To run:"
+    echo "  ./GPU_AAD"
+    echo "  ./portfolio_demo"
+    exit 0
+else
+    print_error "CUDA build with compatibility flags failed"
+    echo "Build log saved to build/build.log"
 fi
 
 # Build strategy 3: CPU-only fallback

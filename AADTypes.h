@@ -1,8 +1,23 @@
 #ifndef AAD_TYPES_H
 #define AAD_TYPES_H
 
+#ifdef CPU_ONLY
+// CPU-only mode - don't include CUDA headers
+#else
+// Include CUDA headers only if available
+#ifdef __CUDACC__
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
+#else
+// Fallback definitions if CUDA headers not available
+typedef int cudaError_t;
+#define cudaSuccess 0
+#define __device__
+#define __global__
+#define __host__
+#endif
+#endif
+
 #include <vector>
 #include <memory>
 

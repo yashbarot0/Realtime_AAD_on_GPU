@@ -2,6 +2,7 @@
 #include <vector>
 #include <chrono>
 #include <iomanip>
+#include <cstring>
 #include "AADTypes.h"
 
 // External kernel launcher

@@ -402,3 +402,5 @@ extern "C" void launch_portfolio_greeks_kernel(
         h_results[i].rho *= qty;
     }
 }
+
+#endif // !CPU_ONLY

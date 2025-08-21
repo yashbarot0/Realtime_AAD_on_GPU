@@ -36,7 +36,7 @@ private:
     std::thread monitoring_thread_;
     
     // Data synchronization
-    std::mutex data_mutex_;
+    mutable std::mutex data_mutex_;
     std::condition_variable data_cv_;
     std::queue<PortfolioComputeRequest> request_queue_;
     

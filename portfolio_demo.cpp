@@ -3,6 +3,7 @@
 #include <chrono>
 #include <iomanip>
 #include <random>
+#include <cstring>
 #include "RealTimePortfolioEngine.h"
 
 // Simulate market data updates
