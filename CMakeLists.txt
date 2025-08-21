@@ -13,13 +13,29 @@ find_package(OpenMP REQUIRED)
 
 # Check for CUDA availability
 if(USE_CUDA AND NOT CPU_ONLY)
+    # Set CUDA paths from environment variables if available
+    if(DEFINED ENV{CUDA_HOME})
+        set(CUDA_TOOLKIT_ROOT_DIR $ENV{CUDA_HOME})
+        set(CMAKE_CUDA_COMPILER $ENV{CUDA_HOME}/bin/nvcc)
+    endif()
+    
+    if(DEFINED ENV{CUDA_PATH})
+        set(CUDA_TOOLKIT_ROOT_DIR $ENV{CUDA_PATH})
+        set(CMAKE_CUDA_COMPILER $ENV{CUDA_PATH}/bin/nvcc)
+    endif()
+    
     find_package(CUDAToolkit QUIET)
     if(CUDAToolkit_FOUND)
         enable_language(CUDA)
         message(STATUS "CUDA found - GPU acceleration enabled")
+        message(STATUS "CUDA Toolkit Root: ${CUDAToolkit_ROOT}")
+        message(STATUS "CUDA Include Dirs: ${CUDAToolkit_INCLUDE_DIRS}")
         
         set(CMAKE_CUDA_STANDARD 17)
         set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+        
+        # Add CUDA include directories explicitly
+        include_directories(${CUDAToolkit_INCLUDE_DIRS})
         
         # Check CUDA and GCC compatibility
         if(CUDAToolkit_VERSION VERSION_LESS "11.0")
@@ -36,6 +52,7 @@ if(USE_CUDA AND NOT CPU_ONLY)
         set(CUDA_AVAILABLE TRUE)
     else()
         message(STATUS "CUDA not found - using CPU-only version")
+        message(STATUS "Try running: ./setup_cuda_env.sh")
         set(CUDA_AVAILABLE FALSE)
     endif()
 else()

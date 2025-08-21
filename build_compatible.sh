@@ -2,7 +2,6 @@
 
 # Enhanced build script for college server compatibility
 echo "=== GPU AAD Portfolio Build Script ==="
-echo "Attempting to build with CUDA compatibility fixes..."
 
 # Color output
 RED='\033[0;31m'
@@ -23,6 +22,31 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Parse command line arguments
+CPU_ONLY_FLAG=false
+FORCE_COMPAT=false
+
+for arg in "$@"; do
+    case $arg in
+        --cpu-only)
+            CPU_ONLY_FLAG=true
+            shift
+            ;;
+        --force-compat)
+            FORCE_COMPAT=true
+            shift
+            ;;
+        --help)
+            echo "Usage: $0 [options]"
+            echo "Options:"
+            echo "  --cpu-only      Force CPU-only build (no CUDA)"
+            echo "  --force-compat  Force CUDA compatibility mode"
+            echo "  --help          Show this help"
+            exit 0
+            ;;
+    esac
+done
+
 # Clean previous build
 print_status "Cleaning previous build..."
 rm -rf build
@@ -31,26 +55,55 @@ cd build
 
 # Check system info
 print_status "System Information:"
-echo "  GCC Version: $(gcc --version | head -n1)"
-echo "  CMake Version: $(cmake --version | head -n1)"
+echo "  GCC Version: $(gcc --version 2>/dev/null | head -n1 || echo 'Not found')"
+echo "  CMake Version: $(cmake --version 2>/dev/null | head -n1 || echo 'Not found')"
 
 # Check for CUDA
-if command -v nvcc &> /dev/null; then
-    echo "  NVCC Version: $(nvcc --version | grep release)"
-    CUDA_VERSION=$(nvcc --version | grep release | sed 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/')
-    echo "  CUDA Version: $CUDA_VERSION"
-    
-    # Check CUDA-GCC compatibility
-    GCC_VERSION=$(gcc -dumpversion | cut -d. -f1)
-    echo "  GCC Major Version: $GCC_VERSION"
-    
-    if (( $(echo "$CUDA_VERSION < 11.0" | bc -l) )) && (( GCC_VERSION > 8 )); then
-        print_warning "CUDA $CUDA_VERSION may not support GCC $GCC_VERSION"
-        print_warning "Will attempt compatibility build..."
-        FORCE_COMPAT=true
-    fi
+if [[ "$CPU_ONLY_FLAG" == "true" ]]; then
+    print_status "CPU-only mode requested - skipping CUDA detection"
 else
-    print_warning "NVCC not found - will build CPU-only version"
+    if command -v nvcc &> /dev/null; then
+        echo "  NVCC Version: $(nvcc --version | grep release)"
+        CUDA_VERSION=$(nvcc --version | grep release | sed 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/')
+        echo "  CUDA Version: $CUDA_VERSION"
+        
+        # Check for CUDA headers
+        if [[ -f "$CUDA_HOME/include/cuda_runtime.h" ]] || [[ -f "/usr/local/cuda/include/cuda_runtime.h" ]]; then
+            echo "  CUDA Headers: Found"
+        else
+            print_warning "CUDA headers not found - may need to run ./setup_cuda_env.sh"
+        fi
+    else
+        print_warning "NVCC not found - will build CPU-only version"
+        CPU_ONLY_FLAG=true
+    fi
+fi
+
+if [[ "$CPU_ONLY_FLAG" == "true" ]]; then
+    print_status "Building CPU-only version..."
+    
+    if cmake -DCPU_ONLY=ON \
+             -DCMAKE_BUILD_TYPE=Release \
+             .. && make -j$(nproc 2>/dev/null || echo 4); then
+        print_status "✓ CPU-only build succeeded!"
+        print_warning "Note: Running in CPU-only mode (no GPU acceleration)"
+        echo ""
+        echo "Build completed successfully!"
+        echo "Executables created:"
+        echo "  - GPU_AAD (main application, CPU-only)"
+        echo "  - portfolio_demo (portfolio demonstration, CPU-only)"
+        echo ""
+        echo "To run:"
+        echo "  ./GPU_AAD"
+        echo "  ./portfolio_demo"
+        echo ""
+        echo "Performance note: CPU-only mode uses OpenMP for parallelization"
+        echo "but will be slower than GPU acceleration."
+        exit 0
+    else
+        print_error "CPU-only build failed"
+        exit 1
+    fi
 fi
 
 # Build strategy 1: Try CUDA with compatibility flags

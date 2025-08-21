@@ -1,10 +1,12 @@
 #include "AADTypes.h"
-#include <cuda_runtime.h>
-#include <device_launch_parameters.h>
 #include <cmath>
 
 #ifdef CPU_ONLY
 #include "cpu_fallback.h"
+#else
+// Only include CUDA headers if not in CPU-only mode
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
 #endif
 
 #ifndef CPU_ONLY
