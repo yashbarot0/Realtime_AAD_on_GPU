@@ -8,9 +8,26 @@
 // CPU-only mode - define CUDA stubs
 typedef int cudaError_t;
 #define cudaSuccess 0
-struct cudaDeviceProp { char name[256]; };
+struct cudaDeviceProp { 
+    char name[256]; 
+    int major;
+    int minor;
+    size_t totalGlobalMem;
+    size_t sharedMemPerBlock;
+    int maxThreadsPerBlock;
+    int multiProcessorCount;
+};
 inline int cudaGetDeviceCount(int* count) { *count = 0; return 0; }
-inline int cudaGetDeviceProperties(cudaDeviceProp* prop, int device) { strcpy(prop->name, "CPU-Only Mode"); return 0; }
+inline int cudaGetDeviceProperties(cudaDeviceProp* prop, int device) { 
+    strcpy(prop->name, "CPU-Only Mode");
+    prop->major = 0;
+    prop->minor = 0;
+    prop->totalGlobalMem = 0;
+    prop->sharedMemPerBlock = 0;
+    prop->maxThreadsPerBlock = 1;
+    prop->multiProcessorCount = 1;
+    return 0; 
+}
 inline int cudaGetLastError() { return 0; }
 inline const char* cudaGetErrorString(int error) { return "CPU-Only Mode"; }
 inline int cudaDeviceSynchronize() { return 0; }
@@ -22,7 +39,15 @@ inline int cudaDeviceSynchronize() { return 0; }
 // Fallback definitions if CUDA headers not available
 typedef int cudaError_t;
 #define cudaSuccess 0
-struct cudaDeviceProp { char name[256]; };
+struct cudaDeviceProp { 
+    char name[256]; 
+    int major;
+    int minor;
+    size_t totalGlobalMem;
+    size_t sharedMemPerBlock;
+    int maxThreadsPerBlock;
+    int multiProcessorCount;
+};
 extern "C" {
     int cudaGetDeviceCount(int* count);
     int cudaGetDeviceProperties(cudaDeviceProp* prop, int device);

@@ -11,9 +11,26 @@ extern "C" {
         return 0;
     }
     
-    int cudaGetDeviceProperties(void* prop, int device) {
-        // Fill with dummy data
-        memset(prop, 0, 256); // Assume cudaDeviceProp is max 256 bytes
+    int cudaGetDeviceProperties(void* prop_void, int device) {
+        // Cast to our known struct type and fill with dummy data
+        struct cudaDeviceProp {
+            char name[256]; 
+            int major;
+            int minor;
+            size_t totalGlobalMem;
+            size_t sharedMemPerBlock;
+            int maxThreadsPerBlock;
+            int multiProcessorCount;
+        };
+        
+        cudaDeviceProp* prop = (cudaDeviceProp*)prop_void;
+        strcpy(prop->name, "CPU-Only Mode");
+        prop->major = 0;
+        prop->minor = 0;
+        prop->totalGlobalMem = 0;
+        prop->sharedMemPerBlock = 0;
+        prop->maxThreadsPerBlock = 1;
+        prop->multiProcessorCount = 1;
         return 0;
     }
     

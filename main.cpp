@@ -9,9 +9,26 @@
 // CPU-only mode - define CUDA stubs
 typedef int cudaError_t;
 #define cudaSuccess 0
-struct cudaDeviceProp { char name[256]; };
+struct cudaDeviceProp { 
+    char name[256]; 
+    int major;
+    int minor;
+    size_t totalGlobalMem;
+    size_t sharedMemPerBlock;
+    int maxThreadsPerBlock;
+    int multiProcessorCount;
+};
 inline int cudaGetDeviceCount(int* count) { *count = 0; return 0; }
-inline int cudaGetDeviceProperties(cudaDeviceProp* prop, int device) { return 0; }
+inline int cudaGetDeviceProperties(cudaDeviceProp* prop, int device) { 
+    strcpy(prop->name, "CPU-Only Mode");
+    prop->major = 0;
+    prop->minor = 0;
+    prop->totalGlobalMem = 0;
+    prop->sharedMemPerBlock = 0;
+    prop->maxThreadsPerBlock = 1;
+    prop->multiProcessorCount = 1;
+    return 0; 
+}
 #else
 // Include CUDA headers if available
 #ifdef __CUDACC__
@@ -20,7 +37,15 @@ inline int cudaGetDeviceProperties(cudaDeviceProp* prop, int device) { return 0;
 // Fallback definitions if CUDA headers not available but not CPU_ONLY
 typedef int cudaError_t;
 #define cudaSuccess 0
-struct cudaDeviceProp { char name[256]; };
+struct cudaDeviceProp { 
+    char name[256]; 
+    int major;
+    int minor;
+    size_t totalGlobalMem;
+    size_t sharedMemPerBlock;
+    int maxThreadsPerBlock;
+    int multiProcessorCount;
+};
 extern "C" {
     int cudaGetDeviceCount(int* count);
     int cudaGetDeviceProperties(cudaDeviceProp* prop, int device);
