@@ -22,7 +22,7 @@ class RealtimePortfolioSystemFixed:
 
         # Configuration
         self.tracked_symbols = ['AAPL', 'MSFT', 'GOOGL']
-        self.update_interval = 60  # seconds
+        self.update_interval = 2  # seconds
         self.running = False
 
         # Stats tracking
