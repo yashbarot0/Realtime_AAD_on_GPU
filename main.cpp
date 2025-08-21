@@ -48,7 +48,7 @@ void test_single_option() {
 void benchmark_gpu_performance() {
     std::cout << "=== GPU Performance Benchmark ===" << std::endl;
     
-    const int num_scenarios = 10000;
+    const int num_scenarios = 1000000;
     std::vector<BlackScholesParams> params(num_scenarios);
     std::vector<OptionResults> results(num_scenarios);
     

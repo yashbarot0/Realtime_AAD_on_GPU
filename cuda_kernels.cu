@@ -369,3 +369,29 @@ extern "C" {
         cudaFree(d_tape_sizes);
     }
 }
+
+// Portfolio Greeks computation kernel
+extern "C" void launch_portfolio_greeks_kernel(
+    const BlackScholesParams* h_params,
+    const int* h_quantities,
+    OptionResults* h_results,
+    int num_positions,
+    GPUConfig config
+) {
+    if (num_positions <= 0) return;
+    
+    // Use the existing Black-Scholes kernel for individual positions
+    launch_blackscholes_kernel(h_params, h_results, num_positions, config);
+    
+    // Scale results by position quantities on CPU for now
+    // (Could be optimized to do this on GPU for very large portfolios)
+    for (int i = 0; i < num_positions; i++) {
+        int qty = h_quantities[i];
+        h_results[i].price *= qty;
+        h_results[i].delta *= qty;
+        h_results[i].vega *= qty;
+        h_results[i].gamma *= qty;
+        h_results[i].theta *= qty;
+        h_results[i].rho *= qty;
+    }
+}
