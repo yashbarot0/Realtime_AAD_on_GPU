@@ -3,6 +3,7 @@
 #include <chrono>
 #include <iomanip>
 #include <cstring>
+#include <cstdlib>
 #include "AADTypes.h"
 
 #ifdef CPU_ONLY
@@ -65,6 +66,7 @@ void test_single_option() {
     std::cout << "=== Single Black-Scholes Option Test ===" << std::endl;
     
     BlackScholesParams params;
+    memset(&params, 0, sizeof(params)); // Initialize to prevent garbage values
     params.spot = 100.0;
     params.strike = 105.0;
     params.time = 0.25;  // 3 months
@@ -73,25 +75,35 @@ void test_single_option() {
     params.is_call = true;
     
     OptionResults result;
+    memset(&result, 0, sizeof(result)); // Initialize to prevent garbage values
+    
     GPUConfig config;
+    config.max_scenarios = 1;
+    config.max_tape_size = 100; // Small size for single option
     
-    launch_blackscholes_kernel(&params, &result, 1, config);
-    
-    std::cout << std::fixed << std::setprecision(6);
-    std::cout << "Spot: $" << params.spot << std::endl;
-    std::cout << "Strike: $" << params.strike << std::endl;
-    std::cout << "Time: " << params.time << " years" << std::endl;
-    std::cout << "Rate: " << (params.rate * 100) << "%" << std::endl;
-    std::cout << "Volatility: " << (params.volatility * 100) << "%" << std::endl;
-    std::cout << std::endl;
-    std::cout << "Results:" << std::endl;
-    std::cout << "Price: $" << result.price << std::endl;
-    std::cout << "Delta: " << result.delta << std::endl;
-    std::cout << "Vega: " << result.vega << std::endl;
-    std::cout << "Gamma: " << result.gamma << std::endl;
-    std::cout << "Theta: " << result.theta << std::endl;
-    std::cout << "Rho: " << result.rho << std::endl;
-    std::cout << std::endl;
+    try {
+        launch_blackscholes_kernel(&params, &result, 1, config);
+        
+        std::cout << std::fixed << std::setprecision(6);
+        std::cout << "Spot: $" << params.spot << std::endl;
+        std::cout << "Strike: $" << params.strike << std::endl;
+        std::cout << "Time: " << params.time << " years" << std::endl;
+        std::cout << "Rate: " << (params.rate * 100) << "%" << std::endl;
+        std::cout << "Volatility: " << (params.volatility * 100) << "%" << std::endl;
+        std::cout << std::endl;
+        std::cout << "Results:" << std::endl;
+        std::cout << "Price: $" << result.price << std::endl;
+        std::cout << "Delta: " << result.delta << std::endl;
+        std::cout << "Vega: " << result.vega << std::endl;
+        std::cout << "Gamma: " << result.gamma << std::endl;
+        std::cout << "Theta: " << result.theta << std::endl;
+        std::cout << "Rho: " << result.rho << std::endl;
+        std::cout << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error in single option test: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Unknown error in single option test" << std::endl;
+    }
 }
 
 void benchmark_gpu_performance() {
@@ -155,11 +167,16 @@ int main() {
     
     // Print GPU information
     cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, 0);
-    std::cout << "GPU: " << prop.name << std::endl;
-    std::cout << "Compute Capability: " << prop.major << "." << prop.minor << std::endl;
-    std::cout << "Global Memory: " << prop.totalGlobalMem / (1024*1024) << " MB" << std::endl;
-    std::cout << "Shared Memory per Block: " << prop.sharedMemPerBlock / 1024 << " KB" << std::endl;
+    memset(&prop, 0, sizeof(prop)); // Initialize to zero first
+    cudaError_t error = cudaGetDeviceProperties(&prop, 0);
+    if (error == cudaSuccess) {
+        std::cout << "GPU: " << prop.name << std::endl;
+        std::cout << "Compute Capability: " << prop.major << "." << prop.minor << std::endl;
+        std::cout << "Global Memory: " << prop.totalGlobalMem / (1024*1024) << " MB" << std::endl;
+        std::cout << "Shared Memory per Block: " << prop.sharedMemPerBlock / 1024 << " KB" << std::endl;
+    } else {
+        std::cout << "GPU: Information unavailable" << std::endl;
+    }
     std::cout << std::endl;
     
     try {
