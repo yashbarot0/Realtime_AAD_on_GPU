@@ -145,6 +145,7 @@ rm -rf *
 if cmake -DUSE_CUDA=ON \
          -DCMAKE_BUILD_TYPE=Release \
          -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler" \
+         -DCMAKE_CUDA_ARCHITECTURES="60;70;75" \
          .. && make -j$(nproc 2>/dev/null || echo 4) 2>&1 | tee build.log; then
     print_status "✓ CUDA build with compatibility flags succeeded!"
     echo ""
@@ -159,6 +160,30 @@ if cmake -DUSE_CUDA=ON \
     exit 0
 else
     print_error "CUDA build with compatibility flags failed"
+    echo "Build log saved to build/build.log"
+fi
+
+# Build strategy 3: Try CUDA with minimal architecture support
+print_status "Strategy 3: CUDA build with minimal architecture..."
+
+rm -rf *
+if cmake -DUSE_CUDA=ON \
+         -DCMAKE_BUILD_TYPE=Release \
+         -DCMAKE_CUDA_ARCHITECTURES="60" \
+         .. && make -j$(nproc 2>/dev/null || echo 4) 2>&1 | tee build.log; then
+    print_status "✓ CUDA build with minimal architecture succeeded!"
+    echo ""
+    echo "Build completed successfully!"
+    echo "Executables created:"
+    echo "  - GPU_AAD (main application)"
+    echo "  - portfolio_demo (portfolio demonstration)"
+    echo ""
+    echo "To run:"
+    echo "  ./GPU_AAD"
+    echo "  ./portfolio_demo"
+    exit 0
+else
+    print_error "CUDA build with minimal architecture failed"
     echo "Build log saved to build/build.log"
 fi
 

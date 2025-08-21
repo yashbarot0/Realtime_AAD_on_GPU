@@ -79,7 +79,9 @@ if(CUDA_AVAILABLE AND NOT CPU_ONLY)
     
     # Set CUDA architecture (try to detect or use common ones)
     if(NOT CMAKE_CUDA_ARCHITECTURES)
-        set(CMAKE_CUDA_ARCHITECTURES "35;50;60;70;75")
+        # Default to common architectures, focusing on newer ones for atomicAdd support
+        set(CMAKE_CUDA_ARCHITECTURES "60;70;75;80;86")
+        message(STATUS "Using default CUDA architectures: ${CMAKE_CUDA_ARCHITECTURES}")
     endif()
     
     # Create main executable
@@ -100,11 +102,13 @@ if(CUDA_AVAILABLE AND NOT CPU_ONLY)
     target_link_libraries(${PROJECT_NAME} CUDA::cudart)
     target_link_libraries(portfolio_demo CUDA::cudart)
     
-    # Set CUDA flags with compatibility
+    # Set CUDA flags with compatibility and architecture-specific optimizations
     target_compile_options(${PROJECT_NAME} PRIVATE
         $<$<COMPILE_LANGUAGE:CUDA>:
             -O3
             --use_fast_math
+            --expt-relaxed-constexpr
+            --expt-extended-lambda
             ${CMAKE_CUDA_FLAGS}
         >
         $<$<COMPILE_LANGUAGE:CXX>:-O3>
@@ -114,6 +118,8 @@ if(CUDA_AVAILABLE AND NOT CPU_ONLY)
         $<$<COMPILE_LANGUAGE:CUDA>:
             -O3
             --use_fast_math
+            --expt-relaxed-constexpr
+            --expt-extended-lambda
             ${CMAKE_CUDA_FLAGS}
         >
         $<$<COMPILE_LANGUAGE:CXX>:-O3>

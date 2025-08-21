@@ -23,6 +23,31 @@ __device__ double safe_divide(double numerator, double denominator) {
     return (fabs(denominator) > 1e-15) ? numerator / denominator : 0.0;
 }
 
+// Custom atomicAdd for double (for older CUDA architectures)
+__device__ double atomicAddDouble(double* address, double val) {
+    unsigned long long int* address_as_ull = (unsigned long long int*)address;
+    unsigned long long int old = *address_as_ull, assumed;
+    
+    do {
+        assumed = old;
+        old = atomicCAS(address_as_ull, assumed,
+                        __double_as_longlong(val + __longlong_as_double(assumed)));
+    } while (assumed != old);
+    
+    return __longlong_as_double(old);
+}
+
+// Safe wrapper for atomicAdd that works with both float and double
+__device__ void safe_atomic_add(double* address, double val) {
+#if __CUDA_ARCH__ >= 600
+    // Use native double atomicAdd for compute capability 6.0+
+    atomicAdd(address, val);
+#else
+    // Use custom implementation for older architectures
+    atomicAddDouble(address, val);
+#endif
+}
+
 __device__ double device_erf(double x) {
     // Approximation of error function for norm_cdf
     double a1 =  0.254829592;
@@ -68,23 +93,23 @@ __global__ void gpu_reverse_pass_kernel(
             // Propagate adjoints based on operation type
             switch (entry.op_type) {
                 case AADOpType::ADD:
-                    atomicAdd(&adjoints[entry.input1_idx], adjoint_result * entry.partial1);
-                    atomicAdd(&adjoints[entry.input2_idx], adjoint_result * entry.partial2);
+                    safe_atomic_add(&adjoints[entry.input1_idx], adjoint_result * entry.partial1);
+                    safe_atomic_add(&adjoints[entry.input2_idx], adjoint_result * entry.partial2);
                     break;
                     
                 case AADOpType::SUB:
-                    atomicAdd(&adjoints[entry.input1_idx], adjoint_result * entry.partial1);
-                    atomicAdd(&adjoints[entry.input2_idx], adjoint_result * entry.partial2);
+                    safe_atomic_add(&adjoints[entry.input1_idx], adjoint_result * entry.partial1);
+                    safe_atomic_add(&adjoints[entry.input2_idx], adjoint_result * entry.partial2);
                     break;
                     
                 case AADOpType::MUL:
-                    atomicAdd(&adjoints[entry.input1_idx], adjoint_result * entry.partial1);
-                    atomicAdd(&adjoints[entry.input2_idx], adjoint_result * entry.partial2);
+                    safe_atomic_add(&adjoints[entry.input1_idx], adjoint_result * entry.partial1);
+                    safe_atomic_add(&adjoints[entry.input2_idx], adjoint_result * entry.partial2);
                     break;
                     
                 case AADOpType::DIV:
-                    atomicAdd(&adjoints[entry.input1_idx], adjoint_result * entry.partial1);
-                    atomicAdd(&adjoints[entry.input2_idx], adjoint_result * entry.partial2);
+                    safe_atomic_add(&adjoints[entry.input1_idx], adjoint_result * entry.partial1);
+                    safe_atomic_add(&adjoints[entry.input2_idx], adjoint_result * entry.partial2);
                     break;
                     
                 case AADOpType::LOG:
@@ -92,7 +117,7 @@ __global__ void gpu_reverse_pass_kernel(
                 case AADOpType::SQRT:
                 case AADOpType::NEG:
                 case AADOpType::NORM_CDF:
-                    atomicAdd(&adjoints[entry.input1_idx], adjoint_result * entry.partial1);
+                    safe_atomic_add(&adjoints[entry.input1_idx], adjoint_result * entry.partial1);
                     break;
             }
         }
