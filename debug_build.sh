@@ -12,7 +12,7 @@ echo "Building with debug flags..."
 if cmake -DUSE_CUDA=ON \
          -DCMAKE_BUILD_TYPE=Debug \
          -DCMAKE_CUDA_ARCHITECTURES="75" \
-         -DCMAKE_CUDA_FLAGS="-Wno-deprecated-gpu-targets -g -G" \
+         -DCMAKE_CUDA_FLAGS="-Wno-deprecated-gpu-targets -g" \
          -DCMAKE_CXX_FLAGS="-g -fsanitize=address" \
          .. && make -j4; then
     

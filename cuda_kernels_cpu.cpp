@@ -1,6 +1,11 @@
 #include "cpu_fallback.h"
 #include <cstring>
 
+// Define CPU_ONLY for this compilation unit to access the functions
+#ifndef CPU_ONLY
+#define CPU_ONLY
+#endif
+
 // CPU-only implementation - all functions defined in cpu_fallback.h
 // This file is created automatically when building in CPU-only mode
 

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 #ifdef CPU_ONLY
 // CPU-only mode - define CUDA stubs
