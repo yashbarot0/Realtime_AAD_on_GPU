@@ -3,7 +3,6 @@
 #include <chrono>
 #include <iomanip>
 #include <random>
-#include <cstring>
 #include "RealTimePortfolioEngine.h"
 
 // Simulate market data updates
@@ -128,7 +127,7 @@ int main() {
     // Apple positions
     OptionPosition pos1;
     pos1.position_id = 1;
-    strcpy(pos1.symbol, "AAPL");
+    pos1.symbol = "AAPL";
     pos1.strike = 190.0;
     pos1.expiration_time = 0.25;  // 3 months
     pos1.quantity = 10;
@@ -140,7 +139,7 @@ int main() {
     // Apple protective put
     OptionPosition pos2;
     pos2.position_id = 2;
-    strcpy(pos2.symbol, "AAPL");
+    pos2.symbol = "AAPL";
     pos2.strike = 180.0;
     pos2.expiration_time = 0.25;
     pos2.quantity = 10;
@@ -152,7 +151,7 @@ int main() {
     // Microsoft position
     OptionPosition pos3;
     pos3.position_id = 3;
-    strcpy(pos3.symbol, "MSFT");
+    pos3.symbol = "MSFT";
     pos3.strike = 380.0;
     pos3.expiration_time = 0.17;  // 2 months
     pos3.quantity = 5;
@@ -164,7 +163,7 @@ int main() {
     // Google position
     OptionPosition pos4;
     pos4.position_id = 4;
-    strcpy(pos4.symbol, "GOOGL");
+    pos4.symbol = "GOOGL";
     pos4.strike = 140.0;
     pos4.expiration_time = 0.33;  // 4 months
     pos4.quantity = 8;
@@ -176,7 +175,7 @@ int main() {
     // Short Tesla position (bearish view)
     OptionPosition pos5;
     pos5.position_id = 5;
-    strcpy(pos5.symbol, "TSLA");
+    pos5.symbol = "TSLA";
     pos5.strike = 250.0;
     pos5.expiration_time = 0.08;  // 1 month
     pos5.quantity = -3;  // Short position
@@ -258,7 +257,7 @@ int main() {
             std::cout << "\n📈 Adding new position..." << std::endl;
             OptionPosition new_pos;
             new_pos.position_id = 6;
-            strcpy(new_pos.symbol, "AAPL");
+            new_pos.symbol = "AAPL";
             new_pos.strike = 195.0;
             new_pos.expiration_time = 0.15;
             new_pos.quantity = 5;

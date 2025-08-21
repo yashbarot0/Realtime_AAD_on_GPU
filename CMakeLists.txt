@@ -77,11 +77,11 @@ if(CUDA_AVAILABLE AND NOT CPU_ONLY)
         cuda_kernels.cu
     )
     
-    # Set CUDA architecture (try to detect or use common ones)
+    # Set CUDA architecture based on what's supported by CUDA 12.9
     if(NOT CMAKE_CUDA_ARCHITECTURES)
-        # Default to common architectures, focusing on newer ones for atomicAdd support
-        set(CMAKE_CUDA_ARCHITECTURES "60;70;75;80;86")
-        message(STATUS "Using default CUDA architectures: ${CMAKE_CUDA_ARCHITECTURES}")
+        # CUDA 12.9 dropped support for sm_35, start from sm_50
+        set(CMAKE_CUDA_ARCHITECTURES "50;60;70;75;80;86;89;90")
+        message(STATUS "Using CUDA architectures for CUDA 12.9+: ${CMAKE_CUDA_ARCHITECTURES}")
     endif()
     
     # Create main executable
@@ -109,6 +109,7 @@ if(CUDA_AVAILABLE AND NOT CPU_ONLY)
             --use_fast_math
             --expt-relaxed-constexpr
             --expt-extended-lambda
+            -Wno-deprecated-gpu-targets
             ${CMAKE_CUDA_FLAGS}
         >
         $<$<COMPILE_LANGUAGE:CXX>:-O3>
@@ -120,6 +121,7 @@ if(CUDA_AVAILABLE AND NOT CPU_ONLY)
             --use_fast_math
             --expt-relaxed-constexpr
             --expt-extended-lambda
+            -Wno-deprecated-gpu-targets
             ${CMAKE_CUDA_FLAGS}
         >
         $<$<COMPILE_LANGUAGE:CXX>:-O3>

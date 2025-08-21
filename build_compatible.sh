@@ -119,6 +119,7 @@ if [[ "$FORCE_COMPAT" != "true" ]]; then
     
     if cmake -DUSE_CUDA=ON \
              -DCMAKE_BUILD_TYPE=Release \
+             -DCMAKE_CUDA_ARCHITECTURES="50;60;70;75" \
              .. && make -j$(nproc 2>/dev/null || echo 4) 2>&1 | tee build.log; then
         print_status "✓ Standard CUDA build succeeded!"
         echo ""
@@ -144,7 +145,7 @@ print_status "Strategy 2: CUDA build with compatibility flags..."
 rm -rf *
 if cmake -DUSE_CUDA=ON \
          -DCMAKE_BUILD_TYPE=Release \
-         -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler" \
+         -DCMAKE_CUDA_FLAGS="-Wno-deprecated-gpu-targets" \
          -DCMAKE_CUDA_ARCHITECTURES="60;70;75" \
          .. && make -j$(nproc 2>/dev/null || echo 4) 2>&1 | tee build.log; then
     print_status "✓ CUDA build with compatibility flags succeeded!"
@@ -164,14 +165,15 @@ else
 fi
 
 # Build strategy 3: Try CUDA with minimal architecture support
-print_status "Strategy 3: CUDA build with minimal architecture..."
+print_status "Strategy 3: CUDA build with your GPU architecture (sm_75)..."
 
 rm -rf *
 if cmake -DUSE_CUDA=ON \
          -DCMAKE_BUILD_TYPE=Release \
-         -DCMAKE_CUDA_ARCHITECTURES="60" \
+         -DCMAKE_CUDA_ARCHITECTURES="75" \
+         -DCMAKE_CUDA_FLAGS="-Wno-deprecated-gpu-targets" \
          .. && make -j$(nproc 2>/dev/null || echo 4) 2>&1 | tee build.log; then
-    print_status "✓ CUDA build with minimal architecture succeeded!"
+    print_status "✓ CUDA build with your GPU architecture succeeded!"
     echo ""
     echo "Build completed successfully!"
     echo "Executables created:"
@@ -183,7 +185,7 @@ if cmake -DUSE_CUDA=ON \
     echo "  ./portfolio_demo"
     exit 0
 else
-    print_error "CUDA build with minimal architecture failed"
+    print_error "CUDA build with your GPU architecture failed"
     echo "Build log saved to build/build.log"
 fi
 

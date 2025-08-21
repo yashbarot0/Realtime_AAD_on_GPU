@@ -4,6 +4,35 @@
 #include <algorithm>
 #include <cmath>
 
+#ifdef CPU_ONLY
+// CPU-only mode - define CUDA stubs
+typedef int cudaError_t;
+#define cudaSuccess 0
+struct cudaDeviceProp { char name[256]; };
+inline int cudaGetDeviceCount(int* count) { *count = 0; return 0; }
+inline int cudaGetDeviceProperties(cudaDeviceProp* prop, int device) { strcpy(prop->name, "CPU-Only Mode"); return 0; }
+inline int cudaGetLastError() { return 0; }
+inline const char* cudaGetErrorString(int error) { return "CPU-Only Mode"; }
+inline int cudaDeviceSynchronize() { return 0; }
+#else
+// Include CUDA headers if available
+#ifdef __CUDACC__
+#include <cuda_runtime.h>
+#else
+// Fallback definitions if CUDA headers not available
+typedef int cudaError_t;
+#define cudaSuccess 0
+struct cudaDeviceProp { char name[256]; };
+extern "C" {
+    int cudaGetDeviceCount(int* count);
+    int cudaGetDeviceProperties(cudaDeviceProp* prop, int device);
+    int cudaGetLastError();
+    const char* cudaGetErrorString(int error);
+    int cudaDeviceSynchronize();
+}
+#endif
+#endif
+
 RealTimePortfolioEngine::~RealTimePortfolioEngine() {
     stop();
 }

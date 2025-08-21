@@ -5,6 +5,30 @@
 // This file is created automatically when building in CPU-only mode
 
 extern "C" {
+    // CUDA runtime function stubs for CPU-only builds
+    int cudaGetDeviceCount(int* count) {
+        *count = 0;
+        return 0;
+    }
+    
+    int cudaGetDeviceProperties(void* prop, int device) {
+        // Fill with dummy data
+        memset(prop, 0, 256); // Assume cudaDeviceProp is max 256 bytes
+        return 0;
+    }
+    
+    int cudaGetLastError() {
+        return 0;
+    }
+    
+    const char* cudaGetErrorString(int error) {
+        return "CPU-Only Mode";
+    }
+    
+    int cudaDeviceSynchronize() {
+        return 0;
+    }
+
     // Dummy implementations that redirect to CPU fallback
     void launch_blackscholes_kernel(
         const BlackScholesParams* h_params,
