@@ -3,6 +3,11 @@
 #include <device_launch_parameters.h>
 #include <cmath>
 
+#ifdef CPU_ONLY
+#include "cpu_fallback.h"
+#endif
+
+#ifndef CPU_ONLY
 // Device math functions with numerical stability
 __device__ double safe_log(double x) {
     return (x > 1e-15) ? log(x) : log(1e-15);
