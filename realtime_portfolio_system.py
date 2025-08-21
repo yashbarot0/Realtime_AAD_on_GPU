@@ -4,260 +4,252 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 from typing import Dict, List
-import json
 import logging
 
-from live_options_fetcher import LiveOptionsDataFetcher, OptionContract, MarketData
-from gpu_portfolio_interface import GPUPortfolioInterface, PortfolioGreeks
+# Import WORKING components (using correct names)
+from safe_gpu_interface import SafeGPUInterface
+from live_options_fetcher import LiveOptionsDataFetcher  # ← FIXED: Correct class name
 
-class RealTimePortfolioSystem:
+class RealtimePortfolioSystemFixed:
     def __init__(self):
-        """Initialize the real-time portfolio system"""
-        self.setup_logging()
-        
-        # Initialize components
-        self.data_fetcher = LiveOptionsDataFetcher()
-        self.gpu_interface = GPUPortfolioInterface()
-        
-        # System state
-        self.running = False
-        self.update_interval = 30  # seconds
-        
-        # Portfolio configuration
-        self.tracked_symbols = ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'AMZN']
-        self.portfolio_positions = {
-            'AAPL': {'quantity': 1000, 'entry_price': 150.0},
-            'MSFT': {'quantity': 500, 'entry_price': 300.0},
-            'GOOGL': {'quantity': 100, 'entry_price': 120.0},
-            'TSLA': {'quantity': 200, 'entry_price': 200.0},
-            'AMZN': {'quantity': 150, 'entry_price': 100.0}
-        }
-        
-        # Risk management parameters
-        self.risk_limits = {
-            'max_delta': 10000,
-            'max_vega': 50000,
-            'max_gamma': 1000,
-            'max_daily_loss': -10000
-        }
-        
-        # Performance tracking
-        self.performance_stats = {
-            'total_updates': 0,
-            'successful_updates': 0,
-            'avg_processing_time': 0,
-            'last_update_time': None
-        }
-    
-    def setup_logging(self):
-        """Setup logging"""
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler('realtime_portfolio.log'),
-                logging.StreamHandler()
-            ]
-        )
+        # Setup logging
+        logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
-    
-    def calculate_time_to_expiry(self, expiry_str: str) -> float:
+
+        # Initialize components with CORRECT class names
+        self.data_fetcher = LiveOptionsDataFetcher()  # ← FIXED
+        self.gpu_interface = SafeGPUInterface()
+
+        # Configuration
+        self.tracked_symbols = ['AAPL', 'MSFT', 'GOOGL']
+        self.update_interval = 60  # seconds
+        self.running = False
+
+        # Stats tracking
+        self.stats = {
+            'updates': 0,
+            'successful_updates': 0,
+            'total_processed': 0,
+            'avg_time': 0.0
+        }
+
+    def time_to_expiry(self, expiry_str):
         """Calculate time to expiry in years"""
         try:
-            expiry_date = pd.to_datetime(expiry_str)
+            expiry_dt = pd.to_datetime(expiry_str)
             now = pd.Timestamp.now()
-            time_diff = (expiry_date - now).total_seconds()
-            years = time_diff / (365.25 * 24 * 3600)
-            return max(0.001, years)  # Minimum 1 day
-        except:
-            return 0.25  # Default to 3 months
-    
-    def process_options_data(self, live_data: Dict[str, Dict]) -> List[Dict]:
-        """Convert live options data to GPU format"""
-        gpu_options = []
-        risk_free_rate = 0.05  # Assume 5% risk-free rate
-        
-        for symbol, symbol_data in live_data.items():
-            market_data = symbol_data['market_data']
-            options = symbol_data['options']
-            
-            for option in options:
-                # Filter for liquid options
-                if option.volume > 10 and option.implied_volatility > 0.05:
-                    gpu_option = {
-                        'symbol': symbol,
-                        'strike': option.strike,
-                        'spot_price': market_data.spot_price,
-                        'time_to_expiry': self.calculate_time_to_expiry(option.expiry),
-                        'risk_free_rate': risk_free_rate,
-                        'implied_volatility': option.implied_volatility,
-                        'is_call': (option.option_type == 'call'),
-                        'market_price': option.last
-                    }
-                    gpu_options.append(gpu_option)
-        
-        return gpu_options
-    
-    def check_risk_limits(self, greeks: PortfolioGreeks) -> Dict[str, bool]:
-        """Check if portfolio exceeds risk limits"""
-        violations = {}
-        
-        violations['delta_exceeded'] = abs(greeks.total_delta) > self.risk_limits['max_delta']
-        violations['vega_exceeded'] = abs(greeks.total_vega) > self.risk_limits['max_vega']
-        violations['gamma_exceeded'] = abs(greeks.total_gamma) > self.risk_limits['max_gamma']
-        violations['loss_exceeded'] = greeks.total_pnl < self.risk_limits['max_daily_loss']
-        
-        return violations
-    
-    def generate_alerts(self, greeks: PortfolioGreeks, violations: Dict[str, bool]):
-        """Generate risk alerts"""
-        if any(violations.values()):
-            self.logger.warning("RISK ALERT!")
-            
-            if violations['delta_exceeded']:
-                self.logger.warning(f"Delta exposure exceeded: {greeks.total_delta:.0f}")
-            
-            if violations['vega_exceeded']:
-                self.logger.warning(f"Vega exposure exceeded: {greeks.total_vega:.0f}")
-            
-            if violations['gamma_exceeded']:
-                self.logger.warning(f"Gamma exposure exceeded: {greeks.total_gamma:.0f}")
-            
-            if violations['loss_exceeded']:
-                self.logger.warning(f"Daily loss exceeded: ${greeks.total_pnl:.2f}")
-    
-    def update_performance_stats(self, processing_time: float, success: bool):
-        """Update performance statistics"""
-        self.performance_stats['total_updates'] += 1
-        if success:
-            self.performance_stats['successful_updates'] += 1
-        
-        # Update average processing time (exponential moving average)
-        alpha = 0.1
-        if self.performance_stats['avg_processing_time'] == 0:
-            self.performance_stats['avg_processing_time'] = processing_time
-        else:
-            self.performance_stats['avg_processing_time'] = (
-                alpha * processing_time + 
-                (1 - alpha) * self.performance_stats['avg_processing_time']
-            )
-        
-        self.performance_stats['last_update_time'] = datetime.now()
-    
-    def print_portfolio_update(self, greeks: PortfolioGreeks, num_options: int):
-        """Print portfolio update to console"""
+            delta = (expiry_dt - now).total_seconds() / (365.25 * 24 * 3600)
+            return max(delta, 0.001)  # Minimum 1 day
+        except Exception:
+            return 0.25  # Default 3 months
+
+    def prepare_options_data(self, live_data):
+        """Convert live data to options processing format"""
+        options = []
+        market_data = {}
+
+        for symbol, data in live_data.items():
+            # Extract market data
+            if isinstance(data, dict):
+                if 'market_data' in data:
+                    market_info = data['market_data']
+                    spot_price = getattr(market_info, 'spot_price', data.get('spot_price', 0))
+                else:
+                    spot_price = data.get('spot_price', 0)
+                    
+                options_list = data.get('options', [])
+            else:
+                # Handle different data structures
+                spot_price = getattr(data, 'spot_price', 0) if hasattr(data, 'spot_price') else 0
+                options_list = getattr(data, 'options', []) if hasattr(data, 'options') else []
+
+            market_data[symbol] = {'spot_price': spot_price}
+
+            # Process options - handle both dict and object formats
+            processed_options = []
+            for opt in options_list:
+                try:
+                    if isinstance(opt, dict):
+                        strike = opt.get('strike', 0)
+                        volume = opt.get('volume', 0)
+                        expiry = opt.get('expiry', '2024-12-20')
+                        iv = opt.get('implied_volatility', opt.get('impliedVol', 0.25))
+                        opt_type = opt.get('type', opt.get('option_type', 'call'))
+                        last_price = opt.get('last', opt.get('last_price', 0))
+                    else:
+                        strike = getattr(opt, 'strike', 0)
+                        volume = getattr(opt, 'volume', 0)
+                        expiry = getattr(opt, 'expiry', '2024-12-20')
+                        iv = getattr(opt, 'implied_volatility', 0.25)
+                        opt_type = getattr(opt, 'option_type', 'call')
+                        last_price = getattr(opt, 'last', 0)
+
+                    # Filter liquid, near-ATM options
+                    if abs(strike - spot_price) <= 50 and volume > 10:
+                        processed_options.append({
+                            'symbol': symbol,
+                            'strike': float(strike),
+                            'spot_price': float(spot_price),
+                            'time_to_expiry': self.time_to_expiry(expiry),
+                            'risk_free_rate': 0.05,
+                            'implied_volatility': max(float(iv), 0.05),
+                            'is_call': str(opt_type).lower() == 'call',
+                            'market_price': float(last_price)
+                        })
+                except Exception as e:
+                    self.logger.warning(f"Error processing option {opt}: {e}")
+                    continue
+
+            # Take top 5 by volume
+            processed_options.sort(key=lambda x: -x.get('volume', 0))
+            options.extend(processed_options[:5])
+
+        return options, market_data
+
+    def print_system_status(self, live_data, processed_count, elapsed_time, greeks):
+        """Display professional system status"""
         print(f"\n{'='*80}")
-        print(f"PORTFOLIO UPDATE - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"🚀 REAL-TIME PORTFOLIO UPDATE - {datetime.now().strftime('%H:%M:%S')}")
         print(f"{'='*80}")
-        print(f"Options Processed: {num_options}")
-        print(f"")
-        print(f"PORTFOLIO GREEKS:")
-        print(f"  Delta:  {greeks.total_delta:>10.2f}")
-        print(f"  Vega:   {greeks.total_vega:>10.2f}")
-        print(f"  Gamma:  {greeks.total_gamma:>10.4f}")
-        print(f"  Theta:  {greeks.total_theta:>10.2f}")
-        print(f"  Rho:    {greeks.total_rho:>10.2f}")
-        print(f"  P&L:    ${greeks.total_pnl:>9.2f}")
-        
-        print(f"\nPERFORMANCE STATS:")
-        success_rate = (self.performance_stats['successful_updates'] / 
-                       max(1, self.performance_stats['total_updates']) * 100)
-        print(f"  Success Rate:    {success_rate:>6.1f}%")
-        print(f"  Avg Proc Time:   {self.performance_stats['avg_processing_time']*1000:>6.1f}ms")
-        print(f"  Total Updates:   {self.performance_stats['total_updates']:>6d}")
-    
-    async def run_update_cycle(self):
-        """Run a single update cycle"""
+
+        print(f"\n📈 MARKET DATA:")
+        total_options = 0
+        for symbol in self.tracked_symbols:
+            if symbol in live_data:
+                data = live_data[symbol]
+                if isinstance(data, dict):
+                    spot = data.get('spot_price', 0)
+                    opts_count = len(data.get('options', []))
+                else:
+                    spot = getattr(data, 'spot_price', 0)
+                    opts_count = len(getattr(data, 'options', []))
+                    
+                total_options += opts_count
+                
+                position = self.gpu_interface.get_positions().get(symbol, {})
+                pnl = 0
+                if position:
+                    pnl = (spot - position.get('entry_price', 0)) * position.get('quantity', 0)
+                
+                print(f"  {symbol}: ${spot:>8.2f} | {opts_count:>3d} options | "
+                      f"Pos: {position.get('quantity', 0):>4d} | P&L: ${pnl:>+8,.0f}")
+
+        print(f"\n💰 PORTFOLIO GREEKS:")
+        print(f"  Delta:  {greeks.total_delta:>12.3f}   (Price sensitivity)")
+        print(f"  Vega:   {greeks.total_vega:>12.3f}   (Volatility sensitivity)")
+        print(f"  Gamma:  {greeks.total_gamma:>12.6f}   (Delta acceleration)")
+        print(f"  Theta:  {greeks.total_theta:>12.3f}   (Time decay)")
+        print(f"  Rho:    {greeks.total_rho:>12.3f}   (Interest rate sensitivity)")
+        print(f"  P&L:    ${greeks.total_pnl:>11,.2f}   (Unrealized P&L)")
+
+        print(f"\n⚡ PERFORMANCE:")
+        print(f"  Processing Time:     {elapsed_time*1000:>8.1f} ms")
+        print(f"  Options Processed:   {processed_count:>8d}")
+        print(f"  Total Available:     {total_options:>8d}")
+        print(f"  Success Rate:        {self.stats['successful_updates']/max(1,self.stats['updates'])*100:>8.1f}%")
+        print(f"  Updates Completed:   {self.stats['updates']:>8d}")
+        print(f"  Compute Method:      {'GPU' if self.gpu_interface.use_gpu else 'CPU':>8s}")
+
+    async def update_cycle(self):
+        """Execute one complete update cycle"""
         start_time = time.time()
-        success = False
-        
+
         try:
-            # Fetch live data
-            self.logger.info(f"Fetching live data for {len(self.tracked_symbols)} symbols...")
+            self.logger.info("Fetching live market data...")
+            
+            # Fetch data using the CORRECT method name
             live_data = self.data_fetcher.fetch_live_data(self.tracked_symbols)
             
             if not live_data:
                 self.logger.warning("No live data received")
-                return
+                return False
+
+            # Process data for GPU computation
+            options_data, market_data = self.prepare_options_data(live_data)
             
-            # Convert to GPU format
-            gpu_options = self.process_options_data(live_data)
-            
-            if not gpu_options:
+            if not options_data:
                 self.logger.warning("No valid options data to process")
-                return
-            
-            self.logger.info(f"Processing {len(gpu_options)} options on GPU...")
-            
-            # Send to GPU for processing
-            self.gpu_interface.add_options_batch(gpu_options)
-            
-            # Small delay to allow GPU processing
-            await asyncio.sleep(0.1)
-            
-            # Get updated Greeks
+                return False
+
+            # Process using GPU/CPU via SafeGPUInterface
+            processed_count = self.gpu_interface.process_portfolio_options(
+                options_data, market_data
+            )
+
+            # Get computed Greeks
             greeks = self.gpu_interface.get_portfolio_greeks()
-            
-            # Check risk limits
-            violations = self.check_risk_limits(greeks)
-            self.generate_alerts(greeks, violations)
-            
-            # Print update
-            self.print_portfolio_update(greeks, len(gpu_options))
-            
-            success = True
-            
+
+            # Update statistics
+            elapsed_time = time.time() - start_time
+            self.stats['updates'] += 1
+            self.stats['successful_updates'] += 1
+            self.stats['total_processed'] += processed_count
+            self.stats['avg_time'] = (
+                self.stats['avg_time'] * (self.stats['updates'] - 1) + elapsed_time
+            ) / self.stats['updates']
+
+            # Display results
+            self.print_system_status(live_data, processed_count, elapsed_time, greeks)
+
+            return True
+
         except Exception as e:
-            self.logger.error(f"Error in update cycle: {e}")
-        
-        finally:
-            processing_time = time.time() - start_time
-            self.update_performance_stats(processing_time, success)
-    
+            self.logger.error(f"Update cycle failed: {e}", exc_info=True)
+            self.stats['updates'] += 1
+            return False
+
     async def run(self):
-        """Run the real-time portfolio system"""
-        self.logger.info("Starting Real-Time Portfolio System...")
-        self.logger.info(f"Tracking symbols: {', '.join(self.tracked_symbols)}")
-        self.logger.info(f"Update interval: {self.update_interval} seconds")
-        
+        """Run the complete real-time system"""
+        print("🚀 Starting Real-Time Portfolio System")
+        print("=" * 50)
+        print(f"📊 Symbols: {', '.join(self.tracked_symbols)}")
+        print(f"⏰ Update Interval: {self.update_interval} seconds")
+        print(f"🖥️  GPU Mode: {'✅ ACTIVE' if self.gpu_interface.use_gpu else '🔄 CPU FALLBACK'}")
+        print("🛑 Press Ctrl+C to stop\n")
+
         self.running = True
-        
+
         try:
             while self.running:
-                await self.run_update_cycle()
+                success = await self.update_cycle()
                 
-                # Wait for next update
-                if self.running:
-                    await asyncio.sleep(self.update_interval)
+                if success:
+                    next_update = datetime.now() + timedelta(seconds=self.update_interval)
+                    print(f"\n⏰ Next update at {next_update.strftime('%H:%M:%S')} "
+                          f"(waiting {self.update_interval} seconds...)")
+                else:
+                    print("\n⚠️  Update failed, retrying in 30 seconds...")
+                    await asyncio.sleep(30)
+                    continue
                 
+                await asyncio.sleep(self.update_interval)
+
         except KeyboardInterrupt:
-            self.logger.info("Received stop signal...")
+            print("\n\n⛔ Stopping system (Ctrl+C pressed)...")
         except Exception as e:
-            self.logger.error(f"Fatal error: {e}")
+            self.logger.error(f"Fatal system error: {e}", exc_info=True)
         finally:
             self.stop()
-    
+
     def stop(self):
-        """Stop the system"""
-        self.logger.info("Stopping Real-Time Portfolio System...")
+        """Stop the system gracefully"""
         self.running = False
+        print("✅ Real-Time Portfolio System stopped")
+        print(f"📊 Final Stats: {self.stats['successful_updates']}/{self.stats['updates']} successful updates")
 
 # Main execution
 async def main():
-    """Main function"""
-    system = RealTimePortfolioSystem()
-    
-    try:
-        await system.run()
-    except KeyboardInterrupt:
-        print("\nShutting down...")
-    finally:
-        system.stop()
+    system = RealtimePortfolioSystemFixed()
+    await system.run()
 
 if __name__ == "__main__":
-    print("Real-Time GPU Portfolio Greeks System")
-    print("====================================")
-    print("Press Ctrl+C to stop")
-    print()
+    # Install dependencies if needed
+    try:
+        import scipy
+    except ImportError:
+        print("📦 Installing scipy...")
+        import subprocess
+        subprocess.run(["pip3", "install", "--user", "scipy"])
     
+    print("🚀 Starting Real-Time GPU Portfolio System")
     asyncio.run(main())
