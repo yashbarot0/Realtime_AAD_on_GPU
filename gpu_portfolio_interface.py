@@ -17,7 +17,7 @@ class PortfolioGreeks:
     timestamp: datetime
 
 class GPUPortfolioInterface:
-    def __init__(self, lib_path: str = "./build/libgpu_aad_realtime.so"):
+    def __init__(self, lib_path: str = "./build/libgpu_aad.so"):
         """Initialize GPU Portfolio Interface"""
         if not os.path.exists(lib_path):
             print(f"Warning: GPU library not found at {lib_path}")
