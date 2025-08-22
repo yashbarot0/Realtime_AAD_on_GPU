@@ -245,10 +245,7 @@ class RealtimePortfolioSystemFixed:
                 return False
 
             # Process using GPU/CPU via SafeGPUInterface
-            # processed_count = self.gpu_interface.process_portfolio_options(
-            #     options_data, market_data
-            # )
-            processed_count = self.gpu_interface.process_portfolio_options_cached(
+            processed_count = self.gpu_interface.process_portfolio_options(
                 options_data, market_data
             )
             # Get computed Greeks

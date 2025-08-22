@@ -206,116 +206,86 @@ class SafeGPUInterface:
             print(f"Error in CPU Greeks: {e}")
             return {'delta': 0, 'vega': 0, 'gamma': 0, 'theta': 0, 'rho': 0}
 
-    def process_portfolio_options_cached(self, options_data: List[Dict], market_data: Dict):
-        """🚀 OPTIMIZED: Process with smart caching"""
-        import time
-        current_time = time.time()
+    def process_portfolio_options(self, options_data: List[Dict], market_data: Dict):
+        """🚀 OPTIMIZED: Process entire batch with single GPU call"""
+        total_greeks = {'delta': 0, 'vega': 0, 'gamma': 0, 'theta': 0, 'rho': 0, 'pnl': 0}
+        
+        # Calculate P&L first
+        for symbol, data in market_data.items():
+            if symbol in self.portfolio_positions:
+                position = self.portfolio_positions[symbol]
+                spot_price = data.get('spot_price', 0)
+                pnl = (spot_price - position['entry_price']) * position['quantity']
+                total_greeks['pnl'] += pnl
 
-        # Filter unchanged options
-        new_options = []
-        for option in options_data:
-            cache_key = f"{option['symbol']}_{option['strike']}_{option['is_call']}"
+        if not options_data:
+            self._update_current_greeks(total_greeks)
+            return 0
 
-            # Check if price changed significantly
-            last_price = self.last_prices.get(cache_key, 0)
-            current_price = option['spot_price']
-            price_change = abs(current_price - last_price) / max(last_price, 1) if last_price > 0 else 1
-
-            # Only process if price changed >0.1% or cache expired
-            last_update = self.data_cache.get(cache_key, 0)
-            if (price_change > 0.001 or current_time - last_update > self.cache_timeout):
-                new_options.append(option)
-                self.data_cache[cache_key] = current_time
-                self.last_prices[cache_key] = current_price
-
-        print(f"📊 Cache hit: {len(options_data) - len(new_options)}/{len(options_data)} options")
-
-        # Process only new/changed options using existing method
-        if new_options:
-            return self.process_portfolio_options(new_options, market_data)
+        # 🔥 BATCHED PROCESSING: Pack all options into contiguous numpy array
+        if self.use_gpu and self.manager:
+            try:
+                # Create structured numpy array
+                batch_array = np.empty(len(options_data), dtype=self._C_STRUCT)
+                
+                for i, option in enumerate(options_data):
+                    # Truncate symbol to fit fixed-length field
+                    symbol_bytes = option['symbol'].encode('utf-8')[:15]
+                    batch_array[i]['symbol'] = symbol_bytes
+                    batch_array[i]['strike'] = option['strike']
+                    batch_array[i]['spot_price'] = option['spot_price']
+                    batch_array[i]['time_to_expiry'] = option['time_to_expiry']
+                    batch_array[i]['risk_free_rate'] = option['risk_free_rate']
+                    batch_array[i]['implied_volatility'] = option['implied_volatility']
+                    batch_array[i]['is_call'] = 1 if option['is_call'] else 0
+                    batch_array[i]['market_price'] = option['market_price']
+                
+                # 🚀 SINGLE GPU CALL: Send entire batch at once
+                self.lib.add_options_batch(
+                    self.manager,
+                    batch_array.ctypes.data_as(ctypes.c_void_p),
+                    ctypes.c_size_t(len(options_data))
+                )
+                
+                processed_count = len(options_data)
+                print(f"🚀 Batched GPU call: {processed_count} options in single transaction")
+                
+            except Exception as e:
+                print(f"❌ GPU batch processing failed: {e}")
+                processed_count = 0
         else:
-            # Return cached Greeks
-            return len(options_data)
+            processed_count = 0
 
-        # """🚀 OPTIMIZED: Process entire batch with single GPU call"""
-        # total_greeks = {'delta': 0, 'vega': 0, 'gamma': 0, 'theta': 0, 'rho': 0, 'pnl': 0}
-        
-        # # Calculate P&L first
-        # for symbol, data in market_data.items():
-        #     if symbol in self.portfolio_positions:
-        #         position = self.portfolio_positions[symbol]
-        #         spot_price = data.get('spot_price', 0)
-        #         pnl = (spot_price - position['entry_price']) * position['quantity']
-        #         total_greeks['pnl'] += pnl
-
-        # if not options_data:
-        #     self._update_current_greeks(total_greeks)
-        #     return 0
-
-        # # 🔥 BATCHED PROCESSING: Pack all options into contiguous numpy array
-        # if self.use_gpu and self.manager:
-        #     try:
-        #         # Create structured numpy array
-        #         batch_array = np.empty(len(options_data), dtype=self._C_STRUCT)
+        # CPU fallback for Greeks calculation (until GPU Greeks are fully connected)
+        for option in options_data:
+            symbol = option['symbol']
+            if symbol not in self.portfolio_positions:
+                continue
                 
-        #         for i, option in enumerate(options_data):
-        #             # Truncate symbol to fit fixed-length field
-        #             symbol_bytes = option['symbol'].encode('utf-8')[:15]
-        #             batch_array[i]['symbol'] = symbol_bytes
-        #             batch_array[i]['strike'] = option['strike']
-        #             batch_array[i]['spot_price'] = option['spot_price']
-        #             batch_array[i]['time_to_expiry'] = option['time_to_expiry']
-        #             batch_array[i]['risk_free_rate'] = option['risk_free_rate']
-        #             batch_array[i]['implied_volatility'] = option['implied_volatility']
-        #             batch_array[i]['is_call'] = 1 if option['is_call'] else 0
-        #             batch_array[i]['market_price'] = option['market_price']
-                
-        #         # 🚀 SINGLE GPU CALL: Send entire batch at once
-        #         self.lib.add_options_batch(
-        #             self.manager,
-        #             batch_array.ctypes.data_as(ctypes.c_void_p),
-        #             ctypes.c_size_t(len(options_data))
-        #         )
-                
-        #         processed_count = len(options_data)
-        #         print(f"🚀 Batched GPU call: {processed_count} options in single transaction")
-                
-        #     except Exception as e:
-        #         print(f"❌ GPU batch processing failed: {e}")
-        #         processed_count = 0
-        # else:
-        #     processed_count = 0
-
-        # # CPU fallback for Greeks calculation (until GPU Greeks are fully connected)
-        # for option in options_data:
-        #     symbol = option['symbol']
-        #     if symbol not in self.portfolio_positions:
-        #         continue
-                
-        #     position = self.portfolio_positions[symbol]
+            position = self.portfolio_positions[symbol]
             
-        #     # Calculate Greeks using CPU
-        #     greeks = self.calculate_cpu_greeks(
-        #         S=option['spot_price'],
-        #         K=option['strike'],
-        #         T=option['time_to_expiry'],
-        #         r=option['risk_free_rate'],
-        #         sigma=option['implied_volatility'],
-        #         is_call=option['is_call']
-        #     )
+            # Calculate Greeks using CPU
+            greeks = self.calculate_cpu_greeks(
+                S=option['spot_price'],
+                K=option['strike'],
+                T=option['time_to_expiry'],
+                r=option['risk_free_rate'],
+                sigma=option['implied_volatility'],
+                is_call=option['is_call']
+            )
             
-        #     # Weight by position
-        #     position_weight = position['quantity'] / 100.0
-        #     total_greeks['delta'] += greeks['delta'] * position_weight
-        #     total_greeks['vega'] += greeks['vega'] * position_weight
-        #     total_greeks['gamma'] += greeks['gamma'] * position_weight
-        #     total_greeks['theta'] += greeks['theta'] * position_weight
-        #     total_greeks['rho'] += greeks['rho'] * position_weight
+            # Weight by position
+            position_weight = position['quantity'] / 100.0
+            total_greeks['delta'] += greeks['delta'] * position_weight
+            total_greeks['vega'] += greeks['vega'] * position_weight
+            total_greeks['gamma'] += greeks['gamma'] * position_weight
+            total_greeks['theta'] += greeks['theta'] * position_weight
+            total_greeks['rho'] += greeks['rho'] * position_weight
 
-        # # Update current Greeks
-        # self._update_current_greeks(total_greeks)
+        # Update current Greeks
+        self._update_current_greeks(total_greeks)
         
-        # return processed_count if processed_count > 0 else len(options_data)
+        return processed_count if processed_count > 0 else len(options_data)
 
     def _update_current_greeks(self, total_greeks):
         """Helper to update current Greeks"""
