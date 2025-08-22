@@ -248,6 +248,7 @@ class RealtimePortfolioSystemFixed:
             processed_count = self.gpu_interface.process_portfolio_options(
                 options_data, market_data
             )
+            
             # Get computed Greeks
             greeks = self.gpu_interface.get_portfolio_greeks()
             

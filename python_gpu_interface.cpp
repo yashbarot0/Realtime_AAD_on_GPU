@@ -1,7 +1,7 @@
 #include "python_gpu_interface.h"
+#include <chrono>
 #include <iostream>
-#include <algorithm>
-#include <numeric>
+#include <thread>
 
 extern "C" void launch_blackscholes_kernel(
     const BlackScholesParams* h_params,
@@ -12,6 +12,9 @@ extern "C" void launch_blackscholes_kernel(
 
 LivePortfolioManager::LivePortfolioManager() : running_(false) {
     std::cout << "LivePortfolioManager created" << std::endl;
+    // Initialize current_greeks_
+    current_greeks_ = {};
+    current_greeks_.last_update = std::chrono::system_clock::now();
 }
 
 LivePortfolioManager::~LivePortfolioManager() {
@@ -54,14 +57,13 @@ void LivePortfolioManager::stop_processing() {
         if (processing_thread_.joinable()) {
             processing_thread_.join();
         }
-        std::cout << "Portfolio processing stopped" << std::endl;
     }
+    std::cout << "Portfolio processing stopped" << std::endl;
 }
 
 void LivePortfolioManager::processing_loop() {
     while (running_) {
         std::unique_lock<std::mutex> lock(queue_mutex_);
-        
         // Wait for data or stop signal
         queue_cv_.wait(lock, [this] { return !data_queue_.empty() || !running_; });
         
@@ -93,7 +95,6 @@ void LivePortfolioManager::process_data_batch(const std::vector<LiveOptionData>&
         params.rate = option.risk_free_rate;
         params.volatility = option.implied_volatility;
         params.is_call = option.is_call;
-        
         gpu_params.push_back(params);
     }
     
@@ -105,22 +106,20 @@ void LivePortfolioManager::process_data_batch(const std::vector<LiveOptionData>&
     config.block_size = 256;
     
     auto start_time = std::chrono::high_resolution_clock::now();
-    
-    launch_blackscholes_kernel(gpu_params.data(), results.data(), 
+    launch_blackscholes_kernel(gpu_params.data(), results.data(),
                               gpu_params.size(), config);
-    
     auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
     
-    std::cout << "Processed " << batch.size() << " options in " 
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    std::cout << "Processed " << batch.size() << " options in "
               << duration.count() << " µs" << std::endl;
     
     // Update portfolio Greeks
     update_portfolio_greeks(batch, results);
 }
 
-void LivePortfolioManager::update_portfolio_greeks(const std::vector<LiveOptionData>& data, 
-                                                  const std::vector<OptionResults>& results) {
+void LivePortfolioManager::update_portfolio_greeks(const std::vector<LiveOptionData>& data,
+                                                   const std::vector<OptionResults>& results) {
     std::lock_guard<std::mutex> positions_lock(positions_mutex_);
     std::lock_guard<std::mutex> greeks_lock(greeks_mutex_);
     
@@ -133,8 +132,11 @@ void LivePortfolioManager::update_portfolio_greeks(const std::vector<LiveOptionD
         const auto& option = data[i];
         const auto& result = results[i];
         
+        // Convert char array to string for lookup
+        std::string symbol_str(option.symbol);
+        
         // Find if we have a position in this option
-        auto pos_it = positions_.find(option.symbol);
+        auto pos_it = positions_.find(symbol_str);
         if (pos_it != positions_.end()) {
             const auto& position = pos_it->second;
             
@@ -154,80 +156,87 @@ void LivePortfolioManager::update_portfolio_greeks(const std::vector<LiveOptionD
     }
     
     current_greeks_ = new_greeks;
-    
-    // Print update
-    std::cout << "Portfolio Greeks Updated:" << std::endl;
-    std::cout << "  Delta: " << current_greeks_.total_delta << std::endl;
-    std::cout << "  Vega: " << current_greeks_.total_vega << std::endl;
-    std::cout << "  Gamma: " << current_greeks_.total_gamma << std::endl;
-    std::cout << "  Theta: " << current_greeks_.total_theta << std::endl;
-    std::cout << "  P&L: $" << current_greeks_.total_pnl << std::endl;
 }
 
 // C interface implementation
 extern "C" {
-    LivePortfolioManager* create_portfolio_manager() {
-        return new LivePortfolioManager();
-    }
+
+LivePortfolioManager* create_portfolio_manager() {
+    return new LivePortfolioManager();
+}
+
+void destroy_portfolio_manager(LivePortfolioManager* manager) {
+    delete manager;
+}
+
+void add_options_batch(LivePortfolioManager* manager,
+                       const LiveOptionData* batch,
+                       size_t count) {
+    if (!manager || !batch || count == 0) return;
     
-    void destroy_portfolio_manager(LivePortfolioManager* manager) {
-        delete manager;
-    }
+    std::vector<LiveOptionData> vec_batch(batch, batch + count);
+    manager->add_data_batch(vec_batch);
+}
+
+void add_option_data(LivePortfolioManager* manager,
+                     const char* symbol,
+                     double strike,
+                     double spot_price,
+                     double time_to_expiry,
+                     double risk_free_rate,
+                     double implied_volatility,
+                     int is_call,
+                     double market_price) {
+    if (!manager) return;
     
-    void add_option_data(LivePortfolioManager* manager, 
-                        const char* symbol,
-                        double strike,
-                        double spot_price,
-                        double time_to_expiry,
-                        double risk_free_rate,
-                        double implied_volatility,
-                        int is_call,
-                        double market_price) {
-        if (!manager) return;
-        
-        std::vector<LiveOptionData> batch;
-        LiveOptionData option;
-        option.symbol = std::string(symbol);
-        option.strike = strike;
-        option.spot_price = spot_price;
-        option.time_to_expiry = time_to_expiry;
-        option.risk_free_rate = risk_free_rate;
-        option.implied_volatility = implied_volatility;
-        option.is_call = (is_call != 0);
-        option.market_price = market_price;
-        option.timestamp = std::chrono::system_clock::now();
-        
-        batch.push_back(option);
-        manager->add_data_batch(batch);
-    }
+    std::vector<LiveOptionData> batch;
+    LiveOptionData option;
     
-    void get_portfolio_greeks(LivePortfolioManager* manager,
-                            double* total_delta,
-                            double* total_vega,
-                            double* total_gamma,
-                            double* total_theta,
-                            double* total_rho,
-                            double* total_pnl) {
-        if (!manager) return;
-        
-        auto greeks = manager->get_current_greeks();
-        *total_delta = greeks.total_delta;
-        *total_vega = greeks.total_vega;
-        *total_gamma = greeks.total_gamma;
-        *total_theta = greeks.total_theta;
-        *total_rho = greeks.total_rho;
-        *total_pnl = greeks.total_pnl;
-    }
+    // Use strncpy for fixed-length string field
+    strncpy(option.symbol, symbol, sizeof(option.symbol) - 1);
+    option.symbol[sizeof(option.symbol) - 1] = '\0'; // Ensure null termination
     
-    void start_processing(LivePortfolioManager* manager) {
-        if (manager) {
-            manager->start_processing();
-        }
-    }
+    option.strike = strike;
+    option.spot_price = spot_price;
+    option.time_to_expiry = time_to_expiry;
+    option.risk_free_rate = risk_free_rate;
+    option.implied_volatility = implied_volatility;
+    option.is_call = (is_call != 0);
+    option.market_price = market_price;
+    option.timestamp = std::chrono::system_clock::now();
     
-    void stop_processing(LivePortfolioManager* manager) {
-        if (manager) {
-            manager->stop_processing();
-        }
+    batch.push_back(option);
+    manager->add_data_batch(batch);
+}
+
+void get_portfolio_greeks(LivePortfolioManager* manager,
+                         double* total_delta,
+                         double* total_vega,
+                         double* total_gamma,
+                         double* total_theta,
+                         double* total_rho,
+                         double* total_pnl) {
+    if (!manager) return;
+    
+    auto greeks = manager->get_current_greeks();
+    *total_delta = greeks.total_delta;
+    *total_vega = greeks.total_vega;
+    *total_gamma = greeks.total_gamma;
+    *total_theta = greeks.total_theta;
+    *total_rho = greeks.total_rho;
+    *total_pnl = greeks.total_pnl;
+}
+
+void start_processing(LivePortfolioManager* manager) {
+    if (manager) {
+        manager->start_processing();
     }
+}
+
+void stop_processing(LivePortfolioManager* manager) {
+    if (manager) {
+        manager->stop_processing();
+    }
+}
+
 }

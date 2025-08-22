@@ -46,8 +46,16 @@ class GPUPortfolioInterface:
         self.portfolio_positions = {
             'AAPL': {'quantity': 1000, 'entry_price': 200.0},
             'MSFT': {'quantity': 500, 'entry_price': 450.0},
-            'GOOGL': {'quantity': 200, 'entry_price': 180.0}
+            'GOOGL': {'quantity': 200, 'entry_price': 180.0},
+            'TSLA': {'quantity': 100, 'entry_price': 250.0},    
+            'NVDA': {'quantity': 50, 'entry_price': 400.0},       
+            'META': {'quantity': 150, 'entry_price': 300.0},    
+            'AMZN': {'quantity': 75, 'entry_price': 150.0},     
+            'NFLX': {'quantity': 25, 'entry_price': 400.0},     
+            'SPY': {'quantity': 500, 'entry_price': 450.0},
+            'QQQ': {'quantity': 300, 'entry_price': 350.0}      
         }
+
         
         # Current Greeks (fallback calculation)
         self.current_greeks = PortfolioGreeks(0, 0, 0, 0, 0, 0, datetime.now())
