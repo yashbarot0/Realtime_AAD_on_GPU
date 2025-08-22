@@ -268,9 +268,16 @@ class LiveOptionsDataFetcher:
         # In a real system, this would connect to your broker API
         # For demo purposes, we'll create some sample positions
         return {
-            'AAPL': {'quantity': 100, 'entry_price': 150.0},
-            'MSFT': {'quantity': 50, 'entry_price': 300.0},
-            'GOOGL': {'quantity': 25, 'entry_price': 120.0}
+            'AAPL': {'quantity': 1000, 'entry_price': 200.0},
+            'MSFT': {'quantity': 500, 'entry_price': 450.0},
+            'GOOGL': {'quantity': 200, 'entry_price': 180.0},
+            'TSLA': {'quantity': 100, 'entry_price': 250.0},    
+            'NVDA': {'quantity': 50, 'entry_price': 400.0},       
+            'META': {'quantity': 150, 'entry_price': 300.0},    
+            'AMZN': {'quantity': 75, 'entry_price': 150.0},     
+            'NFLX': {'quantity': 25, 'entry_price': 400.0},     
+            'SPY': {'quantity': 500, 'entry_price': 450.0},
+            'QQQ': {'quantity': 300, 'entry_price': 350.0} 
         }
 
 async def main():
