@@ -156,14 +156,6 @@ void LivePortfolioManager::update_portfolio_greeks(const std::vector<LiveOptionD
     }
     
     current_greeks_ = new_greeks;
-    
-    // Print update
-    std::cout << "Portfolio Greeks Updated:" << std::endl;
-    std::cout << " Delta: " << current_greeks_.total_delta << std::endl;
-    std::cout << " Vega: " << current_greeks_.total_vega << std::endl;
-    std::cout << " Gamma: " << current_greeks_.total_gamma << std::endl;
-    std::cout << " Theta: " << current_greeks_.total_theta << std::endl;
-    std::cout << " P&L: $" << current_greeks_.total_pnl << std::endl;
 }
 
 // C interface implementation
