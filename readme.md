@@ -484,73 +484,30 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-repo/gpu-aad/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-repo/gpu-aad/discussions)
-- **Email**: support@your-domain.com
+- **Issues**: [GitHub Issues](https://github.com/yashbarot0/Realtime_AAD_on_GPU/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yashbarot0/Realtime_AAD_on_GPU/discussions)
+- **Email**: baroty@tcd.ie
 
 
 ## 🎓 Academic Usage
 
-This project represents MSc-level work in computational finance and GPU computing. If you use this code in academic research, please cite:
+This project represents MSc-level work in computational finance and GPU computing. 
+If you use this code in academic research, please cite:
 
 ```bibtex
 @misc{gpu_aad_2025,
   title={GPU-Accelerated Automatic Differentiation for Financial Derivatives},
-  author={Your Name},
+  author={Yashkumar Barot},
   year={2025},
-  howpublished={\url{https://github.com/your-repo/gpu-aad}}
+  howpublished={\url{https://github.com/yashbarot0/Realtime_AAD_on_GPU/}}
 }
 ```
 
 
 ***
 
-**Built with ❤️ for the quantitative finance community**
-<span style="display:none">[^1][^10][^11][^12][^13][^14][^15][^16][^17][^18][^19][^2][^20][^21][^22][^23][^3][^4][^5][^6][^7][^8][^9]</span>
+**Built with ❤️**
 
-<div style="text-align: center">⁂</div>
-
-[^1]: executive_summary.md
-
-[^2]: mathematical_analysis.md
-
-[^3]: performance_data.csv
-
-[^4]: validation_report.md
-
-[^5]: chapter4_implementation.tex
-
-[^6]: AADTypes.h
-
-[^7]: build.sh
-
-[^8]: CMakeLists.txt
-
-[^9]: complete_realtime_system.py
-
-[^10]: GPUAADNumber.h
-
-[^11]: GPUAADTape.h
-
-[^12]: main.cpp
-
-[^13]: gpu_portfolio_interface.py
-
-[^14]: live_options_fetcher.py
-
-[^15]: mathematical_analysis.py
-
-[^16]: performance_analyzer.py
-
-[^17]: python_gpu_interface.cpp
-
-[^18]: python_gpu_interface.h
-
-[^19]: realtime_portfolio_system.py
-
-[^20]: run_comprehensive_analysis.py
-
-[^21]: safe_gpu_interface.py
 
 [^22]: validation_suite.py
 
