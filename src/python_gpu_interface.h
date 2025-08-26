@@ -1,7 +1,7 @@
 #ifndef PYTHON_GPU_INTERFACE_H
 #define PYTHON_GPU_INTERFACE_H
 
-#include "AADTypes.h"
+#include "include/AADTypes.h"
 #include <string>
 #include <vector>
 #include <map>

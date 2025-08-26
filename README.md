@@ -134,7 +134,7 @@ python safe_gpu_interface.py
 ### Basic GPU AAD Usage
 
 ```cpp
-#include "AADTypes.h"
+#include "include/AADTypes.h"
 
 int main() {
     // Setup option parameters
