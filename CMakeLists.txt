@@ -19,7 +19,7 @@ set(SOURCES
 )
 
 set(CUDA_SOURCES
-    include/cuda_kernels.cu
+    src/cuda_kernels.cu
 )
 
 # Create main executable
