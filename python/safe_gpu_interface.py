@@ -68,7 +68,7 @@ class SafeGPUInterface:
             
             # Check multiple possible paths
             possible_paths = [
-                "./build/libgpu_aad.so",
+                "../build/libgpu_aad.so",
                 "./build/libgpu_aad_shared.so", 
                 "./build/libgpu_aad_realtime.so",
                 "build/libgpu_aad.so",

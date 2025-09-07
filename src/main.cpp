@@ -2,7 +2,7 @@
 #include <vector>
 #include <chrono>
 #include <iomanip>
-#include "AADTypes.h"
+#include "include/AADTypes.h"
 
 // External kernel launcher
 extern "C" void launch_blackscholes_kernel(

@@ -14,12 +14,12 @@ set(CMAKE_CUDA_ARCHITECTURES "75")
 
 # Source files
 set(SOURCES
-    main.cpp
-    python_gpu_interface.cpp
+    src/main.cpp
+    src/python_gpu_interface.cpp
 )
 
 set(CUDA_SOURCES
-    cuda_kernels.cu
+    src/cuda_kernels.cu
 )
 
 # Create main executable
