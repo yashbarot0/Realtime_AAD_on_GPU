@@ -1,0 +1,13 @@
+chmod +x setup_colab.sh && ./setup_colab.sh
+make clean && make -j4
+./aad_gpu_benchmark
+
+nvcc -std=c++17 -arch=sm_75 --shared \
+     -Xcompiler -fPIC \
+     -o libaad_gpu.so \
+     src/blackscholes_aad_kernel.cu \
+     src/GPUAADNumber.cpp \
+     src/GPUAADTape.cpp \
+     src/python_gpu_interface.cpp \
+     -Iinclude -lcudart
+
