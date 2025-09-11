@@ -1,13 +1,338 @@
-chmod +x setup_colab.sh && ./setup_colab.sh
-make clean && make -j4
-./aad_gpu_benchmark
+# chmod +x setup_colab.sh && ./setup_colab.sh
+# make clean && make -j4
+# ./aad_gpu_benchmark
 
-nvcc -std=c++17 -arch=sm_75 --shared \
-     -Xcompiler -fPIC \
-     -o libaad_gpu.so \
-     src/blackscholes_aad_kernel.cu \
-     src/GPUAADNumber.cpp \
-     src/GPUAADTape.cpp \
-     src/python_gpu_interface.cpp \
-     -Iinclude -lcudart
+# nvcc -std=c++17 -arch=sm_75 --shared \
+#      -Xcompiler -fPIC \
+#      -o libaad_gpu.so \
+#      src/blackscholes_aad_kernel.cu \
+#      src/GPUAADNumber.cpp \
+#      src/GPUAADTape.cpp \
+#      src/python_gpu_interface.cpp \
+#      -Iinclude -lcudart
+
+# Real-Time AAD Portfolio Risk Analysis – Project README
+***
+
+## 📁 Project Structure
+
+  
+
+```
+
+AAD/
+
+├── include/
+
+│ ├── AADTypes.h
+
+│ ├── GPUAADNumber.h
+
+│ └── GPUAADTape.h
+
+├── src/
+
+│ ├── blackscholes_aad_kernel.cu # CUDA kernel (price + Greeks)
+
+│ ├── GPUAADNumber.cpp
+
+│ ├── GPUAADTape.cpp
+
+│ ├── python_gpu_interface.cpp # C++ bridge for Python
+
+│ ├── main.cpp # Stand-alone C++ tests/benchmark
+
+│ └── CMakeLists.txt # C++/CUDA build script
+
+├── python/
+
+│ ├── gpu_aad_wrapper.py # ctypes binding layer
+
+│ ├── market_data.py # async yfinance fetcher
+
+│ ├── gpu_monitor.py # NVML monitor
+
+│ └── realtime_risk_system.py # ⬅️ run this script
+
+├── README.md # (this file)
+
+└── setup_colab.sh #chmod +x setup_colab.sh && ./setup_colab.sh
+
+```
+
+  
+  
+
+***
+
+  
+
+## ⚙️ Prerequisites
+
+  
+
+| Component | Minimum version | Notes |
+
+| :-- | :-- | :-- |
+
+| NVIDIA Driver | 510+ | Must support CUDA 11.x |
+
+| CUDA Toolkit | 11.4+ | `nvcc` in `$PATH` |
+
+| GCC / Clang | 9+ | Host compiler for nvcc |
+
+| Python | 3.9+ | Async I/O support |
+
+| GPU | CC 6.0+ | Tested on Tesla T4 (CC 7.5) |
+
+  
+
+Python packages 
+pip install asyncio yfinance numpy pandas pynvml psutil
+python realtime_risk_system.py
+  
+
+```
+
+yfinance
+
+pandas
+
+numpy
+
+asyncio
+
+pynvml
+
+psutil
+
+```
+
+  
+  
+
+***
+
+  
+
+## 🔨 Build Instructions
+
+  
+
+### 1. Clone \& enter project
+
+  
+
+```bash
+
+git clone https://github.com/yashbarot0/Realtime_AAD_on_GPU
+
+cd AAD
+
+```
+
+  
+  
+
+### 2. Build the GPU AAD shared library (Linux)
+
+  
+
+#### a) Using CMake 
+
+  
+
+```bash
+
+mkdir build && cd build
+
+cmake -DCMAKE_BUILD_TYPE=Release ..
+
+make -j$(nproc)
+
+# Output: libaad_gpu.so
+
+```
+
+  
+  
+
+#### b) One-liner with nvcc
+
+  
+
+```bash
+
+nvcc -O3 -use_fast_math -arch=sm_75 \
+
+-Xcompiler -fPIC \
+
+src/blackscholes_aad_kernel.cu \
+
+src/GPUAADNumber.cpp \
+
+src/GPUAADTape.cpp \
+
+src/python_gpu_interface.cpp \
+
+-Iinclude -lcudart \
+
+-shared -o libaad_gpu.so
+
+```
+
+  
+
+> Note `-Xcompiler -fPIC` (pass PIC flag to host compiler).
+
+> Adjust `sm_75` to  GPU’s compute capability.
+
+  
+
+Place `libaad_gpu.so` in `python/` or a directory listed in `LD_LIBRARY_PATH`.
+
+
+
+***
+
+  
+
+## 🚀 Running the Real-Time System
+
+  
+
+```bash
+
+cd python
+
+python3 realtime_risk_system.py
+
+```
+
+  
+
+Console dashboard appears every second:
+
+  
+
+```
+
+🔥 REAL-TIME PORTFOLIO RISK DASHBOARD - 12:34:56
+
+-------------------------------------------------
+
+Delta : 75.34
+
+Vega : 234.56
+
+Gamma : 0.00
+
+Theta : -45.23
+
+Rho : 12.78
+
+Value ($) : 1,245.67
+
+Options : 150,000
+
+  
+
+GPU Util : 88.2 %
+
+Mem Used : 2.3 GB / 15.3 GB (15 %)
+
+Temp : 71 °C
+
+Power Draw : 94 W
+
+  
+
+Cycle time : 0.048 s | Options/sec : 3.1 M
+
+AAD ops : 15,000,000 (cum 300 M)
+
+```
+
+  
+
+Stop with `Ctrl-C`; a final performance summary is printed.
+
+  
+
+***
+
+  
+
+## 📝 Key Files Explained
+
+  
+
+| File | Purpose |
+
+| :-- | :-- |
+
+| **AADTypes.h** | POD structs (tape entry, option params/results, GPU config). |
+
+| **GPUAADTape.*/**Number.* | Minimal tape + operator overloading for reverse-mode AAD on GPU. |
+
+| **blackscholes_aad_kernel.cu** | CUDA kernel: price + adjoint sweep to get Δ Γ Θ V ρ. |
+
+| **python_gpu_interface.cpp** | Converts Python-friendly data to `BlackScholesParams[]`, launches kernel. |
+
+| **gpu_aad_wrapper.py** | `ctypes` loader for `libaad_gpu.so`, provides pure-Python `compute_option_greeks_gpu()` API. |
+
+| **market_data.py** | Async yfinance fetcher, option-parameter generator. |
+
+| **gpu_monitor.py** | NVML helper to read utilization, memory, temp, power. |
+
+| **realtime_risk_system.py** | High-level orchestrator: fetch → batch → GPU → aggregate → dashboard. |
+
+  
+  
+
+***
+
+  
+
+## ⚡ Performance Tuning Cheatsheet
+
+  
+
+1. **Batch size**
+
+Increase `options_per_symbol` in `market_data.generate_option_parameters()` until GPU util>80%.
+
+2. **Streams \& overlap**
+
+Kernel in `compute_stream`, H-D copies in `copy_stream`.
+
+3. **Fast math**
+
+Compile with `-use_fast_math` and `-lineinfo` to verify FMA utilization in NSight.
+
+4. **Memory reuse**
+
+Allocate GPU buffers once inside `GPUAADTape::initialize()`.
+
+5. **Data latency**
+
+Cache 1-min candles; only hit Yahoo once per minute; interpolate ticks.
+
+  
+
+***
+
+  
+
+## 🧹 Cleaning Up
+
+  
+
+```bash
+
+# Remove build artefacts
+
+rm -rf build *.so .venv
+
+```
 

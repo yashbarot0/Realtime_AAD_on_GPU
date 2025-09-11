@@ -93,7 +93,7 @@ class RealTimeRiskSystem:
         prices, fetch_time = await self.market_data.fetch_all_prices()
         
         # 2. Generate option parameters
-        options = self.market_data.generate_option_parameters(prices, options_per_symbol=10)
+        options = self.market_data.generate_option_parameters(prices, options_per_symbol=10000)
         
         # 3. Compute Greeks using GPU AAD
         compute_start = time.time()
